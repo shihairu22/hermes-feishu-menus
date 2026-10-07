@@ -999,9 +999,10 @@ def build_pt_card(chat_id: str = "") -> Dict[str, Any]:
     sites = [x for x in list(run.get("sites") or []) if isinstance(x, dict)]
     # 2026-10-05 修（X6-D31 re-base：X5 调整本块行序后适配）：分子 run["ok"] 与分母
     # sites.json 异源，站点清单增删时与下方逐站明细对不上；total==0 时还会渲染 "N/0"。
-    # 有本轮逐站记录就用它的长度做分母（与明细同源），否则退回清单；两者皆无（total<=0）
-    # 时不再拼假分数。
-    total = len(sites) if sites else total_all
+    # 2026-10-07 修：中途叫停的轮次只记了 6 站，用 len(sites) 当分母会渲染成 "6/6"
+    # （看着像整轮全过）。分母改为优先用**本轮自己声明的 total**（与分子 run["ok"] 同源），
+    # 再退回逐站条数，最后退回站点清单；两者皆无（total<=0）时不再拼假分数。
+    total = int(run.get("total") or 0) or (len(sites) if sites else total_all)
     ok_n = int(run.get("ok") or 0)
     date = str(run.get("date") or "")
     end = str(run.get("ended") or "")
@@ -3651,7 +3652,7 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 112  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 113  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
 
