@@ -59,11 +59,3 @@ jobs:
 
       - name: 泄漏扫描（工作区 + 全历史）
         run: python3 scripts/scan-leaks.py --history
-
-      - name: 分发产物不得含本机绝对路径
-        run: |
-          set -e
-          if grep -rn -- '/root/' assets/ ; then
-            echo "✗ assets 里出现 /root/ 绝对路径"; exit 1
-          fi
-          echo "✓ 无 /root/ 绝对路径"

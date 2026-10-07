@@ -1,4 +1,4 @@
-a903406415a95268de3b6fc04308d1fb8c8c74f0895cf9ade0bafa5961dbd4e1  ./CHANGELOG.md
+327d1ad4b441d5db5ac3ef5ba2dde683efed80f8710d90deaf885ad963e728d1  ./CHANGELOG.md
 ec1bb468242a3f255585781aae5215941b0b4297348f151f4dccc6eeb289fa49  ./README.md
 94092851e6dcb29db9635bb663f9ba2747fc84fb2b02834c8d612db42d3da0c5  ./SANITIZED.md
 3a3119c588c2d35d52736cdb3f6f55ba3c8e9c7a93aefbcd08d1011efe843fc0  ./SETUP.md
@@ -27,4 +27,7 @@ ec179e38c076f439f0bef613678576de28208bc6d449ecf6032d1cc7794dd190  ./scripts/chec
 97d7be758d28b4df8e535ac1d5839a3955d6854ef3a61ba2f0d264b969ab41a8  ./scripts/install-feishu-menu-bridge.sh
 d310effd57996cc1aef68438fc4801bf3c212ac621559c49886246be2ced7cdb  ./scripts/install-feishu-model-picker.sh
 7de7f9115df47d9eef0476ef375a4fc7197e8c8e2724117c2dc312a6202a335d  ./scripts/install.sh
+9e9a6c8a8d9bad5e34cdfdb956e13924eb5710331b5d34d49eab132bcc35967c  ./scripts/regen-sums.py
+765ab6ea20d7eaa4261e368d85014a032506278655dc9737939871ce598da451  ./scripts/sanitize-live-to-assets.py
+4966dca9385958214c433a5db76a66ba1bf5c6ecc6371a8f092aba1a8bca97fc  ./scripts/scan-leaks.py
 9ead9e15538a3d4fb1bb367a177c3eeb526c69e224a58a2184e5536ef7a6692e  ./scripts/skill_zh_autofill.py

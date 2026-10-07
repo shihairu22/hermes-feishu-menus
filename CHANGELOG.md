@@ -21,7 +21,9 @@
 - `sanitize:` —— 纯个人/本机标识 → 中性值（行为不变），如 `/root/.hermes` → `~/.hermes`、人设名 → 通用表述；
 - `overlay:` —— **有意的分发版功能差异**（不是去敏）。只有一条：PT 卡删掉两个会误触的按钮（理由见 `SANITIZED.md` / `SETUP.md`）。
 
-配套：`scripts/scan-leaks.py` 泄漏扫描（工作区 + git 全历史，只报位置不回显内容）、`scripts/regen-sums.py` 自动发现文件重算两层校验和、`.github/workflows/ci.yml` 门禁（语法 / 校验和 / 泄漏扫描 / 产物不许含宿主家目录绝对路径）。
+配套：`scripts/scan-leaks.py` 泄漏扫描（工作区 + git 全历史，只报位置不回显内容）、`scripts/regen-sums.py` 自动发现文件重算两层校验和、`.github/workflows/ci.yml` 门禁（语法 / 校验和 / 泄漏扫描）。
+
+扫密器的规则**按作用域生效**：`home-abs-path` 只在 `assets/`（分发产物）里算泄漏——文档与 CI 配置里讨论路径是正常写作。私有值（自建域名、聊天 ID）不进仓库，走 `LEAK_EXTRA_PATTERNS` 环境变量或 gitignore 的 `.leak-patterns`。
 
 CI **不做**「重生成 assets 再比对」——runner 上没有作者的 live 插件，那项核对只能在作者本机跑（`bash scripts/check-assets-sync.sh`）。边界写进 `SETUP.md`，好过让 CI 假装做得到。
 

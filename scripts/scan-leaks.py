@@ -47,6 +47,18 @@ ALLOW_PATTERNS_IN = {
     "README.md": {"author-handle"},
 }
 
+# 规则作用域。默认全仓库生效；`assets-only` 的规则只对**分发产物**生效——
+# 因为「绝对家目录路径」只有出现在产物里才是泄漏，在文档/CI 配置里讨论路径
+# 是正常写作（实测：自己的 CI grep 模式和 CHANGELOG 举例被自己的规则抓成红）。
+RULE_SCOPE = {
+    "home-abs-path": "assets-only",
+}
+
+
+def in_assets(label: str) -> bool:
+    """label 形如 'assets/...'、'history:<rev>:assets/...' 或裸路径。"""
+    return label.startswith("assets/") or ":assets/" in label
+
 # 公开归属用的作者名（GitHub handle）。出现在其它文件里才算可疑。
 AUTHOR_HANDLE = r"shihairu"
 
@@ -87,6 +99,8 @@ def scan_text(name: str, text: str, pats: dict, label: str) -> list:
     allow = ALLOW_PATTERNS_IN.get(name, set())
     for rule, rx in pats.items():
         if rule in allow:
+            continue
+        if RULE_SCOPE.get(rule) == "assets-only" and not in_assets(label):
             continue
         for m in re.finditer(rx, text, re.I):
             line = text.count("\n", 0, m.start()) + 1
@@ -133,6 +147,8 @@ def main() -> int:
                                     capture_output=True, text=True).stdout.split():
                 if f.endswith(SKIP_SUFFIX):
                     continue
+                if not a.strict and f in SOURCE_SKIP:
+                    continue          # 与工作区扫描同一判据，否则 CI 会因扫描器自匹配而红
                 blob = subprocess.run(["git", "show", f"{r}:{f}"], capture_output=True,
                                       text=True).stdout
                 hits += scan_text(f, blob, pats, f"history:{r[:8]}:{f}")
