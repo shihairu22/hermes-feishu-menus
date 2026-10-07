@@ -993,7 +993,8 @@ def build_system_card(chat_id: str = "") -> Dict[str, Any]:
 
 
 def build_pt_card(chat_id: str = "") -> Dict[str, Any]:
-    """设计稿 v7：站点/已签到 两格（有失败才高亮）+ 最近一轮逐站明细 + 刷新/收起。"""
+    """设计稿 v7：站点/已签到 两格（有失败才高亮）+ 最近一轮逐站明细 + 刷新/收起。
+    零数据时走空状态早返回（见下方）。"""
     total_all = _pt_sites()
     run = _pt_last_run() or {}
     sites = [x for x in list(run.get("sites") or []) if isinstance(x, dict)]
@@ -1009,6 +1010,39 @@ def build_pt_card(chat_id: str = "") -> Dict[str, Any]:
     running = bool(run) and not run.get("ended")   # 轮次进行中（未收口）
     done_v = (f"{ok_n}/{total}" if total > 0 else f"{ok_n}") if run else "—"
     done_k = (date + (" " + (end or "进行中") if (end or running) else "")).strip() or "尚无记录"
+    if not run:
+        # 2026-10-07 WS2：零数据时给「可操作的空状态」，而不是一张「? 站 + 空明细」的破卡。
+        # 口径（用户 2026-10-07 定）：主卡只显示最基本的签到否；流式卡负责过程与魔力。
+        # 本卡只读、不发起签到。
+        if total_all > 0:
+            el0 = [
+                _metric_row(_usage_cell("🌐 站点", str(total_all), "已发现",
+                                        accent=True, tone=_DOM_DATA),
+                            _usage_cell("✅ 已签到", "—", "尚无记录",
+                                        vsize="normal", tone=_DOM_DATA)),
+                _note(f"已发现 {total_all} 个站点，但还没有签到记录——等待首次签到。"),
+                _note("本卡只读，不发起签到。"),
+            ]
+        else:
+            el0 = [
+                _metric_row(_usage_cell("🌐 站点", "—", "未配置",
+                                        accent=True, tone=_DOM_DATA),
+                            _usage_cell("✅ 已签到", "—", "尚无记录",
+                                        vsize="normal", tone=_DOM_DATA)),
+                _note("未找到站点清单，PT 卡暂无数据。"),
+                _panel_element("📥 **怎么接上数据**",
+                               "1. 建数据目录 `~/.pt-sessions/state/`（或用环境变量 "
+                               "`PT_SESSIONS_DIR` 指向别处）\n"
+                               "2. 写站点清单 `state/sites.json`，内容为站点名数组，"
+                               "如 `[\"站点A\", \"站点B\"]`\n"
+                               "3. 每轮签到逐站写入记录（格式见仓库 `SETUP.md` 的 PT 章节），"
+                               "卡面即自动显示进度。", expanded=True),
+            ]
+        el0 += _rows([_refresh_btn("PT"), _btn("✕ 收起", {"hermes_menu_close": True})])
+        # 副标题也不能出现「? 站」——那正是本次要消灭的破卡形态（实测被验证脚本抓到）。
+        sub0 = (f"{total_all} 站 · 尚无记录" if total_all else "尚无数据 · 等待接入")
+        return _card("🌱 PT 签到", _DOM_DATA, el0, subtitle=sub0)
+
     lines: List[str] = []
     for it in sites:
         st = str(it.get("status") or "")
@@ -3652,7 +3686,7 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 113  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 114  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
 

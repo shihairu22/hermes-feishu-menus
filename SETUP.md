@@ -142,13 +142,26 @@ Hermes 网关上常并存两套 Python，本包已按此设计：
 
 ## 一致性对账
 
-技能包里的 `assets/` 与线上 `$HERMES_HOME/plugins/` 可能漂移（改了线上忘了同步回包）：
+`assets/` 是**产物**——由作者本机的 live 插件经生成器产出（去敏 + 分发覆盖）。
+不再需要人肉对齐两份，也不会因为「改了线上忘了同步回包」而漂移：
 
 ```bash
-bash scripts/check-assets-sync.sh     # exit 0 = 一致；DRIFT = 漂移，会打印两侧哈希
+python3 scripts/sanitize-live-to-assets.py --write   # 从 live 重生成 assets
+python3 scripts/sanitize-live-to-assets.py --check   # 只比对（改了 live 没重生成 → exit 1）
+bash scripts/check-assets-sync.sh                    # 生成器对账 + 两层校验和 + 语义护栏
+python3 scripts/regen-sums.py                        # 重算内层 SHA256SUMS → 外层 MANIFEST
+python3 scripts/scan-leaks.py --history              # 泄漏扫描（工作区 + 全历史）
 ```
 
-**改插件后必须把修复同步回 `assets/`**，否则别人用这份包重装会复现旧 bug。
+**改了插件后的正确顺序**：改 live → `--write` 重生成 → `regen-sums.py` 重算两层 → `scan-leaks.py` 扫一遍 → 提交。
+
+生成器把差异分成两类，都写在 `scripts/sanitize-live-to-assets.py` 的规则表里、逐条有名字：
+
+- `sanitize:` —— 纯个人/本机标识 → 中性值（行为不变）；
+- `overlay:` —— **有意的分发版功能差异**（不是去敏）。目前只有 PT 卡那条：删掉两个会误触的按钮。
+
+CI（`.github/workflows/ci.yml`）只做它**做得到**的事：语法检查、两层校验和、泄漏扫描、产物里不许出现宿主家目录的绝对路径。
+它**不**重生成 assets——CI runner 上没有作者的 live 插件，那项核对只能在作者本机跑（就是上面的 `check-assets-sync.sh`）。
 
 ## 回滚
 

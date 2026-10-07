@@ -3,3 +3,6 @@ __pycache__/
 *.log
 .DS_Store
 Thumbs.db
+
+# 私有扫描模式（本机专用，绝不外发）
+.leak-patterns

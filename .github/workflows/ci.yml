@@ -1,0 +1,69 @@
+name: CI
+
+# 这个仓库的 assets 是**产物**（由作者本机的 live 插件经
+# scripts/sanitize-live-to-assets.py 生成）。CI runner 上没有作者的 live 插件，
+# 所以这里**不做**「重生成并比对」——那项核对只在作者本机跑
+# （scripts/check-assets-sync.sh）。CI 负责的是：产物本身是否健康、是否泄密。
+#
+# 说明白边界，好过让 CI 假装能做到它做不到的事。
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # 全历史：泄密扫描要能翻到旧提交
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 语法检查（assets 里的插件）
+        run: |
+          set -e
+          for f in assets/*/__init__.py assets/*/keeper.py scripts/*.py; do
+            python3 -m py_compile "$f"
+            echo "  ok  $f"
+          done
+
+      - name: JSON / YAML 基本合法性
+        run: |
+          set -e
+          python3 - <<'PY'
+          import json, glob, sys
+          for p in glob.glob("assets/*/skill_zh.json") + ["menu.json"]:
+              json.load(open(p, encoding="utf-8"))
+              print("  ok ", p)
+          try:
+              import yaml
+          except ImportError:
+              print("  (skip yaml: 未安装 PyYAML)")
+          else:
+              yaml.safe_load(open("quick_commands.yaml", encoding="utf-8"))
+              print("  ok  quick_commands.yaml")
+          PY
+
+      - name: 两层校验和自检
+        run: |
+          set -e
+          for d in assets/*/; do
+            (cd "$d" && sha256sum -c SHA256SUMS)
+          done
+          sha256sum -c MANIFEST.sha256
+
+      - name: 泄漏扫描（工作区 + 全历史）
+        run: python3 scripts/scan-leaks.py --history
+
+      - name: 分发产物不得含本机绝对路径
+        run: |
+          set -e
+          if grep -rn -- '/root/' assets/ ; then
+            echo "✗ assets 里出现 /root/ 绝对路径"; exit 1
+          fi
+          echo "✓ 无 /root/ 绝对路径"
