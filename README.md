@@ -71,7 +71,8 @@ feishu-menus/
 │   ├── console-apply-menu.js             # 控制台：读菜单 → 写菜单 → 回读复核
 │   ├── console-publish.js                # 控制台：建版本 → 提交发布
 │   ├── check-assets-sync.sh              # assets ⇄ 线上插件一致性对账
-│   └── feishu-model-picker-selftest.py   # 插件离线自测（7 项，纯标准库）
+│   ├── feishu-model-picker-selftest.py   # 插件离线自测（7 项，纯标准库）
+│   └── skill_zh_autofill.py              # 把技能卡里没中文化的说明一次补齐（可选）
 └── assets/
     ├── feishu-menu-bridge/       # 菜单桥插件源码（4 个文件 + SHA256SUMS）
     └── feishu-model-picker/      # 点选器插件源码（3 个文件 + SHA256SUMS）
@@ -86,6 +87,8 @@ python3 scripts/build-console-snippet.py apply      # 生成「铺菜单」JS
 python3 scripts/build-console-snippet.py publish    # 生成「建版本+发布」JS
 python3 scripts/feishu-model-picker-selftest.py     # 插件离线自测
 bash scripts/check-assets-sync.sh                   # assets ⇄ 线上插件对账
+python3 scripts/skill_zh_autofill.py --stats        # 看技能卡还有多少条说明没中文化
+python3 scripts/skill_zh_autofill.py                # 一次补齐（走你自己配置的模型）
 sha256sum -c MANIFEST.sha256                        # 校验本包完整性
 ```
 
@@ -132,6 +135,28 @@ sha256sum -c MANIFEST.sha256                        # 校验本包完整性
 所以 **pipx / venv / `~/.local` 安装同样能直接跑**，不必手动设环境变量；只有在非常规布局下才需要显式指定。
 
 > 用量卡的**波形块**依赖本机 `tools/` 下两个工具文件（**不在本包里**，属于可选增强）。没有就是那行提示，卡片不会报错。
+
+## 技能卡的中文说明是怎么来的
+
+技能卡里「按钮下方那一行」是中文的，来源**三层，按优先级**：
+
+1. **你自己技能自带的说明** —— 你的 `SKILL.md` 写的是中文，卡片就显示中文（多数情况命中这层，零成本）
+2. **包内静态表** `skill_zh.json`（66 条）—— 覆盖常见/上游技能，离线、零成本，装完就有
+3. **自动补译** —— 前两层都没有、且原文不是中文的，插件用**你自己配置的模型**译成一行中文，
+   结果存 `$HERMES_HOME/state/skill_zh_auto.json`，之后一直复用
+
+**自动补译的行为**（都是实测过的）：
+
+- **不阻塞**：卡片立刻渲染，翻译在后台线程里做 —— 永远不会让你等模型
+- **一次 20 条**：每打开一次技能卡补一批，几轮下来就齐了；卡上会显示「⏳ 另有 N 条说明还没中文化」
+- **想一次补齐**：`python3 scripts/skill_zh_autofill.py`（`--dry-run` 先看要译哪些，`--stats` 看还剩多少）
+- **成本**：约 250 token/条，走你自己的额度。95 个技能大约 2.5 万 token（一次性）
+- **幂等**：已译过的不再送模型；想强制重译某条，把它从 `state/skill_zh_auto.json` 删掉再跑
+- **失败静默**：模型不可用/超时就保留原文，不写坏缓存、不影响其他功能
+- **关掉**：设环境变量 `FMB_SKILL_ZH_AUTO=0` 后重启网关
+
+> 人格卡不走这套 —— 14 个内置人格的中文说明是**插件自带**的，装完就是中文；
+> 对方自建的人格会显示原始英文说明（**不编造翻译**）。
 
 ## 常见问题
 

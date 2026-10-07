@@ -1126,6 +1126,10 @@ def build_skills_card(chat_id: str = "", page: int = 1) -> Dict[str, Any]:
         d = _skill_zh(r["name"]) or _skill_desc(r["path"])
         if d:
             el.append(_note(d[:34]))
+    _miss = _skill_zh_missing()
+    if _miss:
+        el.append(_note(f"⏳ 另有 {_miss} 条说明还没中文化：正在用你自己的模型自动补译"
+                        f"（每次打开补 20 条），稍后重开这张卡即可看到中文。"))
     if not rows:
         el.append(_note("读不到技能目录，稍后再点一次。"))
     _nav = _nav_row("技能", page, pages)
@@ -1135,6 +1139,7 @@ def build_skills_card(chat_id: str = "", page: int = 1) -> Dict[str, Any]:
         _cmd_btn("🔍 搜索", "/help skills"),
         _btn("✕ 收起", {"hermes_menu_close": True}),
     ])
+    _skill_zh_autofill_kick()      # 非阻塞：本次没译完的，下次开卡继续补
     return _card("🧰 技能", _DOM_TOOL, el, subtitle=f"第 {page}/{pages} 页 · 共 {total} 个技能")
 
 
@@ -2074,7 +2079,206 @@ def _skill_zh_map() -> Dict[str, str]:
 
 
 def _skill_zh(name: str) -> str:
-    return str(_skill_zh_map().get(name) or "")
+    """技能中文说明：先查包内静态表，再查自动翻译缓存，都没有返回空串。"""
+    return str(_skill_zh_map().get(name) or _skill_zh_auto_map().get(name) or "")
+
+
+# ── 技能说明「自动中文化」──────────────────────────────────────────
+# 背景：包内 skill_zh.json 是**静态**表（离线、零成本），只覆盖通用技能；
+# 接收方自己装的技能不在表里，卡片只能显示 SKILL.md 原文（可能是英文）。
+# 这里让插件用**本机已配置的模型**自动补译，结果落盘缓存、之后一直复用。
+# 三条硬约束：① 卡片渲染绝不能等模型（补译走后台线程）；
+#             ② 任何失败都静默保留原文（不写、不抛）；
+#             ③ 已经是中文的不送模型（省 token）。
+_SKILL_ZH_AUTO = _HOME_DIR + "/state/skill_zh_auto.json"
+_SKILL_ZH_AUTO_CACHE: Dict[str, Any] = {}
+_SKILL_ZH_FILLING = threading.Event()
+
+_SKILL_ZH_PROMPT = ("给技能写一行中文说明：不超过 16 个汉字，要点用顿号分隔，"
+                    "保留专有名词/产品名/命令原文，不要句号。"
+                    '只输出 JSON 对象 {"技能名":"说明"}，不要其他文字。')
+
+
+def _skill_zh_auto_map() -> Dict[str, str]:
+    """自动翻译缓存（$HERMES_HOME/state/skill_zh_auto.json；按 mtime 缓存）。"""
+    try:
+        stamp = os.stat(_SKILL_ZH_AUTO).st_mtime_ns
+    except Exception:
+        return {}
+    if _SKILL_ZH_AUTO_CACHE.get("stamp") == stamp:
+        return _SKILL_ZH_AUTO_CACHE.get("data") or {}
+    try:
+        with open(_SKILL_ZH_AUTO, encoding="utf-8") as fh:
+            data = json.load(fh)
+        data = {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+    except Exception:
+        data = {}
+    _SKILL_ZH_AUTO_CACHE["stamp"], _SKILL_ZH_AUTO_CACHE["data"] = stamp, data
+    return data
+
+
+def _is_chinese(text: str) -> bool:
+    """说明是否已经是中文（汉字够多就不再送模型）。"""
+    s = str(text or "")
+    if not s.strip():
+        return True
+    han = len(re.findall(r"[\u4e00-\u9fff]", s))
+    return han >= max(4, int(len(s) * 0.25))
+
+
+def _llm_endpoint() -> Tuple[str, str, str]:
+    """本机模型接入点 (base_url, api_key, model)；任一项缺失就返回三个空串。
+
+    读 config.yaml 的 base_url / model.default；密钥优先取环境变量
+    OPENAI_API_KEY（config.yaml 的 providers.*.key_env 指向它），取不到再读
+    $HERMES_HOME/.env。**不打印、不外传密钥**。
+    """
+    base = model = ""
+    try:
+        cfg = (Path(_HOME_DIR) / "config.yaml").read_text(encoding="utf-8")
+        m = re.search(r"(?m)^\s*base_url:\s*['\"]?(https?://[^\s'\"]+)", cfg)
+        base = m.group(1) if m else ""
+        m = re.search(r"(?m)^\s*default:\s*['\"]?([^\s'\"]+)", cfg)
+        model = m.group(1) if m else ""
+    except Exception:
+        pass
+    key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    if not key:
+        try:
+            for ln in (Path(_HOME_DIR) / ".env").read_text(encoding="utf-8").splitlines():
+                ln = ln.strip()
+                if ln.startswith("OPENAI_API_KEY="):
+                    key = ln.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+        except Exception:
+            pass
+    if base and key and model:
+        return base.rstrip("/"), key, model
+    return "", "", ""
+
+
+def _skill_zh_translate(items: List[Dict[str, str]]) -> Dict[str, str]:
+    """调本机模型把 [{name, desc}] 译成 {name: 中文说明}；任何失败返回 {}。"""
+    base, key, model = _llm_endpoint()
+    if not (base and key and model) or not items:
+        return {}
+    try:
+        import urllib.request
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": _SKILL_ZH_PROMPT},
+                {"role": "user", "content": json.dumps(items, ensure_ascii=False)},
+            ],
+            "temperature": 0.2,
+        }
+        req = urllib.request.Request(
+            base + "/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        txt = body["choices"][0]["message"]["content"]
+        m = re.search(r"\{.*\}", txt, re.S)
+        if not m:
+            return {}
+        got = json.loads(m.group(0))
+        return {str(k): str(v).strip() for k, v in got.items()} if isinstance(got, dict) else {}
+    except Exception:
+        logger.warning("[FeishuMenuBridge] 技能说明翻译调用失败（保留原文）", exc_info=True)
+        return {}
+
+
+def skill_zh_autofill(limit: Optional[int] = None, batch: int = 20) -> Dict[str, Any]:
+    """补齐技能中文说明：挑出「没有中文且原文也不是中文」的 → 分批送模型 → 落盘。
+
+    幂等：静态表与自动缓存里已有的不再送模型。
+    失败静默：不写、不抛，卡片继续显示原文。写入前重读文件并合并（防并发丢更新）。
+    """
+    known = _skill_zh_map()
+    auto = dict(_skill_zh_auto_map())
+    todo: List[Dict[str, str]] = []
+    for r in _skills_flat():
+        if r["name"] in known or r["name"] in auto:
+            continue
+        d = _skill_desc(r["path"])
+        if not d or _is_chinese(d):
+            continue
+        todo.append({"name": r["name"], "desc": d[:300]})
+    if limit:
+        try:
+            todo = todo[:max(1, int(limit))]
+        except Exception:
+            pass
+    stats: Dict[str, Any] = {"candidates": len(todo), "translated": 0, "failed": 0}
+    for i in range(0, len(todo), batch):
+        chunk = todo[i:i + batch]
+        got = _skill_zh_translate(chunk)
+        if not got:
+            stats["failed"] += len(chunk)
+            continue
+        for it in chunk:
+            zh = _clean_md(got.get(it["name"]) or "")
+            if zh:
+                auto[it["name"]] = zh
+                stats["translated"] += 1
+            else:
+                stats["failed"] += 1
+    if stats["translated"]:
+        try:
+            p = Path(_SKILL_ZH_AUTO)
+            cur: Dict[str, Any] = {}
+            if p.exists():
+                try:
+                    cur = json.loads(p.read_text(encoding="utf-8"))
+                except Exception:
+                    cur = {}
+            if not isinstance(cur, dict):
+                cur = {}
+            cur.update(auto)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(cur, ensure_ascii=False, indent=1, sort_keys=True),
+                         encoding="utf-8")
+            _SKILL_ZH_AUTO_CACHE.clear()      # 让下一次读拿到新值
+        except Exception:
+            logger.warning("[FeishuMenuBridge] 技能中文缓存写入失败", exc_info=True)
+    stats["remaining"] = max(0, len(todo) - stats["translated"])
+    return stats
+
+
+def _skill_zh_missing() -> int:
+    """还有多少条技能说明没有中文（原文也不是中文的才算）。"""
+    n = 0
+    for r in _skills_flat():
+        if _skill_zh(r["name"]):
+            continue
+        if _is_chinese(_skill_desc(r["path"])):
+            continue
+        n += 1
+    return n
+
+
+def _skill_zh_autofill_kick(batch: int = 20) -> None:
+    """非阻塞触发一批补译（同一时刻只跑一个；卡片渲染绝不能等模型）。
+
+    想彻底关掉自动补译：设环境变量 ``FMB_SKILL_ZH_AUTO=0`` 后重启网关。
+    """
+    if str(os.environ.get("FMB_SKILL_ZH_AUTO", "1")).strip().lower() in ("0", "false", "no", "off"):
+        return
+    if _SKILL_ZH_FILLING.is_set():
+        return
+    _SKILL_ZH_FILLING.set()
+
+    def _run() -> None:
+        try:
+            skill_zh_autofill(limit=batch)
+        except Exception:
+            logger.warning("[FeishuMenuBridge] 技能自动翻译失败（忽略）", exc_info=True)
+        finally:
+            _SKILL_ZH_FILLING.clear()
+
+    threading.Thread(target=_run, name="fmb-skill-zh-fill", daemon=True).start()
 
 
 def _clean_md(text: str) -> str:
