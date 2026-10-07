@@ -22,7 +22,29 @@ else
 fi
 
 mkdir -p "$DST"
-cp -f "$ASSETS/__init__.py" "$ASSETS/keeper.py" "$ASSETS/plugin.yaml" "$ASSETS/skill_zh.json" "$DST/"
+
+# 覆盖前先比对：不存在→复制；与源相同→跳过；不同→先把旧文件备份成
+# <目标文件>.bak-<YYYYmmdd_HHMMSS> 再覆盖。用 `if cmp -s ...` 这种安全写法，
+# 避免 set -e 因 cmp 的非零返回码意外退出。
+copy_asset() {
+  local name="$1" src="$ASSETS/$1" dst="$DST/$1"
+  if [ ! -e "$dst" ]; then
+    cp -p "$src" "$dst"
+    echo "  + $name（新建）"
+  elif cmp -s "$src" "$dst"; then
+    echo "  = $name 已是同一份，跳过"
+  else
+    local bak
+    bak="$dst.bak-$(date +%Y%m%d_%H%M%S)"
+    cp -p "$dst" "$bak"
+    cp -p "$src" "$dst"
+    echo "  ! $name 与包内不同：旧文件已备份到 $bak，并已覆盖"
+  fi
+}
+
+for f in __init__.py keeper.py plugin.yaml skill_zh.json; do
+  copy_asset "$f"
+done
 echo "✓ 插件已复制到 $DST（4 个文件：__init__.py + keeper.py + plugin.yaml + skill_zh.json）"
 
 if command -v hermes >/dev/null 2>&1; then

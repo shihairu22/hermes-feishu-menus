@@ -62,6 +62,13 @@ def _verify_keeper_contract(mod) -> None:
             raise RuntimeError("keeper 契约类型错误: %s" % name)
     if getattr(mod, "WATCHER_NAME", "") != _WATCHER_NAME_EXPECTED:
         raise RuntimeError("keeper WATCHER_NAME 漂移: %r" % getattr(mod, "WATCHER_NAME", None))
+    # 2026-10-07 审计修复（#15）：原来只校验 KEEPER_VERSION「是 int」。文件里的版本号与
+    # 本文件期望值不一致时，模块仍能装上，但下一次 _keeper_module() 又会因为版本不等而
+    # 重载 → 每次调用都重载 keeper、重启线程（重载风暴）。这里直接判等，漂移就落到上面
+    # 既有的 except（退化为插件自带线程，不炸网关）。
+    if getattr(mod, "KEEPER_VERSION", None) != _KEEPER_VERSION:
+        raise RuntimeError("keeper KEEPER_VERSION 漂移: %r != %r"
+                           % (getattr(mod, "KEEPER_VERSION", None), _KEEPER_VERSION))
 
 
 def _keeper_module():
@@ -761,7 +768,10 @@ def _usage_stats(days: int = 7) -> Dict[str, Any]:
     week = 0
     for off in range(days - 1, -1, -1):
         d = today0 - _dt.timedelta(days=off)
-        lo = bounds.get(_key(d - _dt.timedelta(days=1)))
+        # 2026-10-07 审计修复（#1）：日增量 = 本日 00:00 累计 → 次日 00:00 累计。
+        # 原来下界取 bounds[d-1]（前一天 00:00）→ 窗口跨 2 天，逐日互相包含，
+        # 累加后整周数字系统性接近翻倍。
+        lo = bounds.get(_key(d))
         hi: Optional[Dict[str, int]] = cur_io if off == 0 else bounds.get(
             _key(d + _dt.timedelta(days=1)))
         if lo is None and off == 0:
@@ -1950,7 +1960,12 @@ def _delegations(limit: int = 6) -> Tuple[int, List[Dict[str, str]]]:
 
 
 def _model_usage(limit: int = 6) -> List[Dict[str, Any]]:
-    """逐模型真实用量（session_model_usage 汇总，不摊分）。"""
+    """逐模型真实用量（session_model_usage 汇总，不摊分）。
+
+    口径 = **含缓存读**（input+output+cache_read），与卡片总令牌、中转站一致。
+    2026-10-07 审计修复（#7）：原来只 SUM(input+output)，而卡片总令牌标着「含缓存读」
+    → 两个数字永远对不上（本机缓存读远大于输入，差距是数量级）。
+    """
     out: List[Dict[str, Any]] = []
     try:
         import os as _os
@@ -1960,7 +1975,8 @@ def _model_usage(limit: int = 6) -> List[Dict[str, Any]]:
         try:
             for model, calls, toks, sessions in conn.execute(
                     "SELECT model, SUM(COALESCE(api_call_count,0)),"
-                    " SUM(COALESCE(input_tokens,0)+COALESCE(output_tokens,0)),"
+                    " SUM(COALESCE(input_tokens,0)+COALESCE(output_tokens,0)"
+                    "     +COALESCE(cache_read_tokens,0)),"
                     " COUNT(DISTINCT session_id) FROM session_model_usage"
                     " GROUP BY model ORDER BY 3 DESC LIMIT ?", (limit,)):
                 out.append({"model": str(model or "?"), "calls": int(calls or 0),
@@ -2345,6 +2361,7 @@ def _insights_stats(days: int = 30) -> Dict[str, Any]:
     工具调用=SUM(tool_call_count)、令牌=SUM(input+output+cache_read)；时段/日期按 +2h 本地时。
     """
     out: Dict[str, Any] = {}
+    conn = None
     try:
         import sqlite3 as _sqlite
         home = Path(os.environ.get("HERMES_HOME") or (Path.home() / ".hermes"))
@@ -2393,9 +2410,15 @@ def _insights_stats(days: int = 30) -> Dict[str, Any]:
             "SELECT tool_name t, COUNT(*) n FROM messages"
             " WHERE timestamp > ? AND tool_name IS NOT NULL AND tool_name != ''"
             " GROUP BY t ORDER BY n DESC LIMIT 5", (cut,))]
-        conn.close()
     except Exception:
         logger.warning("[FeishuMenuBridge] 读洞察统计失败", exc_info=True)
+    finally:
+        # 2026-10-07 审计修复（#14）：连接改在 finally 关，异常路径不再靠 GC 兜底。
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
     return out
 
 
@@ -3263,6 +3286,21 @@ def _synth_source(chat_id: str, open_id: str = "") -> Any:
 async def _inject(adapter: Any, chat_id: str, text: str, open_id: str = "") -> None:
     from gateway.platforms.event import MessageEvent, MessageType
     source = _SOURCES.get(chat_id)
+    # 2026-10-07 审计修复（#6）：群聊里 _SOURCES[chat_id] 存的是**最后一个发言者**的
+    # source，而点卡的人未必是他 —— 沿用会拿别人的身份去执行菜单命令。带上点击者
+    # open_id 且与缓存 source 不一致时，克隆一份只换 user_id（保留 chat_type 等字段；
+    # 克隆失败退回 _synth_source）。DM 里两者一致，行为完全不变。
+    if open_id and getattr(source, "user_id", None) != open_id:
+        _fresh = None
+        try:
+            import dataclasses as _dc
+            _fresh = _dc.replace(source, user_id=open_id)
+        except Exception:
+            _fresh = None
+        if _fresh is None:
+            _fresh = _synth_source(chat_id, open_id)
+        if _fresh is not None:
+            source = _fresh
     if source is None:
         source = _synth_source(chat_id, open_id)
         if source is not None:
@@ -3613,7 +3651,7 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 110  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 111  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
 
@@ -3761,7 +3799,9 @@ def _install_lark_builder_hook() -> bool:
         return False
     if _mk(EventDispatcherHandlerBuilder, _MARKER_LARK) >= _CODE_V:
         return True
-    orig = EventDispatcherHandlerBuilder.register_p2_card_action_trigger
+    # 2026-10-07 审计修复（#3）：取原始实现必须剥掉我们自己打的包装（_orig_of），
+    # 否则升版后新包装调用旧包装、旧闭包里的判断先执行 → 新版点击逻辑被永久冻结。
+    orig = _orig_of(EventDispatcherHandlerBuilder.register_p2_card_action_trigger)
 
     def _patched_register(self, f):
         # 2026-10-04 审计修复：本插件的包装可能被其它插件（如选单器）再包一层，
@@ -3803,10 +3843,11 @@ def _install_lark_builder_hook() -> bool:
             return self
 
     _patched_register.__name__ = "register_p2_card_action_trigger"
+    _patched_register._hermes_orig = orig   # 登记链尾：_orig_of 才找得到 SDK 原实现
     EventDispatcherHandlerBuilder.register_p2_card_action_trigger = _patched_register
 
     # build() 出来的处理器打上版本戳，供 _ensure_card_routing 判断是否需要重建
-    orig_build = EventDispatcherHandlerBuilder.build
+    orig_build = _orig_of(EventDispatcherHandlerBuilder.build)
 
     def _patched_build(self):
         handler = orig_build(self)
@@ -3817,6 +3858,7 @@ def _install_lark_builder_hook() -> bool:
         return handler
 
     _patched_build.__name__ = "build"
+    _patched_build._hermes_orig = orig_build   # 登记链尾（同 #3）
     EventDispatcherHandlerBuilder.build = _patched_build
 
     setattr(EventDispatcherHandlerBuilder, _MARKER_LARK, _Guard(_CODE_V))
@@ -4002,11 +4044,14 @@ def _patch_send_final() -> bool:
         from gateway.platforms.base import BasePlatformAdapter, SendResult
     except Exception:
         return False
-    orig = getattr(BasePlatformAdapter, "send_final_ledgered", None)
-    if orig is None:
+    cur = getattr(BasePlatformAdapter, "send_final_ledgered", None)
+    if cur is None:
         return False
-    if _mk(orig, _MARKER_SENDFINAL) >= _CODE_V:
+    if _mk(cur, _MARKER_SENDFINAL) >= _CODE_V:
         return True   # 已装（幂等，版本门控）
+    # 2026-10-07 审计修复（#4）：幂等门看的是**当前**属性（标记在包装上），
+    # 但取原始实现必须剥链，否则升版后旧回执抑制逻辑先执行、新版被冻结（与 #3 同因）。
+    orig = _orig_of(cur)
 
     async def _patched_sfl(self, event, session_key, text_content, metadata,
                            *, reply_to=None, is_ephemeral_response=False):
@@ -4420,7 +4465,9 @@ def _intercept_card_action(handler: Any, payload: Any) -> Any:
         adapter = live[0] if live else None
     if adapter is None:
         _count_drop("no_adapter", "[FeishuMenuBridge] 卡片点击被丢弃：拿不到可用适配器")
-        return None
+        # 2026-10-07 审计修复（#8）：这是我方卡片的点击，绝不能返回 None 落回官方路径 ——
+        # 官方路径会把卡片 token 当 message_id 处理（报错/发错）。给用户一条明确提示。
+        return _not_delivered()
     ctx = ev.get("context") or {}
     ope = ev.get("operator") or {}
     logger.debug("[FeishuMenuBridge] card click intercepted at dispatcher: %s", value)
@@ -4674,12 +4721,16 @@ def _patch_busy_class(cls) -> bool:
                    cls.__name__)
         return False
     if getattr(orig, "_hermes_menu_bridge_busy", False):
-        # 类上已是我们的包装，但标记 < _CODE_V（标记被清/写失败/类被重建）。
-        # 不解包（无法安全解包闭包），保持现状 + 留痕：看到这条 = 该重启/重载一次，属已知降级态。
-        _warn_once(("busy-stale", cls.__name__),
-                   "[FeishuMenuBridge] busy hook: %s 已是旧版包装但标记=%s(<v%d)，保持现状（重启/重载可修复）",
-                   cls.__name__, _mk(cls, _MARKER_BUSY), _CODE_V)
-        return False
+        # 2026-10-07 审计修复（#2）：旧版包装在升版后换不掉 —— 原来直接 return False，
+        # 于是热重载 / 升 _CODE_V 全都无效，必须重启网关。现在包装登记了 _hermes_orig，
+        # 可以沿链剥回 SDK 原实现，用新逻辑重装一层。
+        _stale = _orig_of(orig)
+        if _stale is None or getattr(_stale, "_hermes_menu_bridge_busy", False):
+            _warn_once(("busy-stale", cls.__name__),
+                       "[FeishuMenuBridge] busy hook: %s 旧版包装无法剥链（标记=%s），保持现状",
+                       cls.__name__, _mk(cls, _MARKER_BUSY))
+            return False
+        orig = _stale
 
     async def _busy_menu_wrapper(self, event, source, _quick_key):
         try:
@@ -4701,6 +4752,12 @@ def _patch_busy_class(cls) -> bool:
                                              exc_info=True)
                             # D6：不在此处调 orig —— 统一由函数末尾调用一次，异常时不再二次调用
                         else:
+                            # F01/#5（2026-10-07 审计修复）：与钩子、批处理两处统一闸门 ——
+                            # 发卡并吞掉消息之前复用网关授权判断（fail-closed）；
+                            # 未授权就放行原文，交回网关照常处理。
+                            if not _sender_authorized(self, source):
+                                logger.info("[FeishuMenuBridge] 未授权来源，忙线不发卡（放行原文）")
+                                return await orig(self, event, source, _quick_key)
                             card = await asyncio.to_thread(build_card, key, chat_id)
                             if card is not None:
                                 logger.info("[FeishuMenuBridge] 忙线拦截 %r → 直接发卡", text)
@@ -4714,6 +4771,7 @@ def _patch_busy_class(cls) -> bool:
         return await orig(self, event, source, _quick_key)
 
     _busy_menu_wrapper._hermes_menu_bridge_busy = True
+    _busy_menu_wrapper._hermes_orig = orig   # 2026-10-07（#2）：登记链尾，升版后可剥链重装
     cls._hm_handle_running_session_message = _busy_menu_wrapper
     try:
         setattr(cls, _MARKER_BUSY, _Guard(_CODE_V))
@@ -4763,11 +4821,15 @@ def _patch_batch_class(cls) -> bool:
                    cls.__name__)
         return False
     if getattr(orig, "_hermes_menu_bridge_batch", False):
-        # 同 busy：已是旧版包装但标记低 → 保持现状 + 留痕（看到这条 = 该重启/重载一次）
-        _warn_once(("batch-stale", cls.__name__),
-                   "[FeishuMenuBridge] batch hook: %s 已是旧版包装但标记=%s(<v%d)，保持现状（重启/重载可修复）",
-                   cls.__name__, _mk(cls, _MARKER_BATCH), _CODE_V)
-        return False
+        # 2026-10-07 审计修复（#2）：同 _patch_busy_class —— 剥链后用新逻辑重装，
+        # 不再需要重启网关。
+        _stale = _orig_of(orig)
+        if _stale is None or getattr(_stale, "_hermes_menu_bridge_batch", False):
+            _warn_once(("batch-stale", cls.__name__),
+                       "[FeishuMenuBridge] batch hook: %s 旧版包装无法剥链（标记=%s），保持现状",
+                       cls.__name__, _mk(cls, _MARKER_BATCH))
+            return False
+        orig = _stale
 
     async def _batch_rewrite(self, event):
         try:
@@ -4811,6 +4873,7 @@ def _patch_batch_class(cls) -> bool:
         return await orig(self, event)
 
     _batch_rewrite._hermes_menu_bridge_batch = True
+    _batch_rewrite._hermes_orig = orig   # 2026-10-07（#2）：登记链尾，升版后可剥链重装
     cls._dispatch_inbound_event = _batch_rewrite
     try:
         setattr(cls, _MARKER_BATCH, _Guard(_CODE_V))
@@ -4996,8 +5059,12 @@ def _health_tick(periodic: bool = False) -> None:
             _warn_once(("health", bad), "[FeishuMenuBridge] health UNHEALTHY: %s", res)
             # 2026-10-04 审计修复：目标类连续全不可见（半死窗口，实测曾持续 18+ 分钟）——
             # 到阈值就强制全量重装，不再干等热重载/重启。
+            # 2026-10-07 审计修复（#16）：原判据「fam 里全部是 None」在真网关里**不可达**
+            # —— sendfinal/ptgate 依赖的模块必然已加载，恒非 None，所以自愈是死代码。
+            # 改成只看「靠模块/类发现」的那几族：它们同时为 None 才是真的半死窗口。
             fams = res.get("families") or {}
-            if fams and not any(v is not None for v in fams.values()):
+            _discover = ("batch", "busy", "routing", "cardify", "resolved2")
+            if fams and all(fams.get(k) is None for k in _discover):
                 globals()["_ALLNONE_N"] = int(globals().get("_ALLNONE_N", 0)) + 1
                 if globals()["_ALLNONE_N"] >= 5:
                     logger.warning("[FeishuMenuBridge] 目标类连续 %d 次全不可见，强制全量重装补丁",

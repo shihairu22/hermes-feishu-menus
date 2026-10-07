@@ -15,6 +15,7 @@ import inspect
 import itertools
 import json
 import logging
+import os
 import sys
 import threading
 import time
@@ -108,11 +109,19 @@ def _shared(key: str, factory):
     return k.shared(key, factory)
 
 
+# 缺陷 #12 修复：keeper 缺失时，代际戳不再退化为常量 "fallback"（那会让热重载后新代
+# 误判「已装过」而跳过重装 → 改了插件热重载不生效）。改为「文件 mtime + 导入时刻」：
+# 模块级只算一次 —— 若放进函数里每次读 mtime 会每次不同，反而更糟。
+# 同一进程内反复调用返回同一值（同代稳定）；插件文件被改动 → 重载 → mtime 变化 → 戳变化。
+_FILE_MTIME = int(os.path.getmtime(__file__))
+_IMPORT_TS = int(time.time())
+
+
 def _stamp_value() -> str:
-    """当前代应写入的补丁代际戳（keeper 缺失时退化为固定值）。"""
+    """当前代应写入的补丁代际戳（keeper 缺失时用文件 mtime + 导入时刻，同代稳定）。"""
     k = _keeper_module()
     if k is None:
-        return "fallback"
+        return "fallback.m%d.i%d" % (_FILE_MTIME, _IMPORT_TS)
     return "v%d.g%d" % (_KEEPER_VERSION, int(getattr(k, "token", 0) or 0))
 
 
@@ -190,17 +199,30 @@ def _provider_label(p: Dict[str, Any]) -> str:
 
 # ── 卡片构建 ────────────────────────────────────────────
 
-def _provider_card(pid: int, providers: List[dict], current_model: str, current_provider: str) -> Dict[str, Any]:
+def _provider_card(pid: int, providers: List[dict], current_model: str, current_provider: str,
+                   page: int = 0) -> Dict[str, Any]:
+    # 缺陷 #11 修复：提供方不再全部平铺（提供方多时飞书卡片元素超限、发送失败），
+    # 改为与 _models_card 一致的 _PAGE 分页；按钮里的 i 仍是**全局**索引（下钻 _models_card 用）。
+    pages = max(1, (len(providers) + _PAGE - 1) // _PAGE)
+    page = max(0, min(int(page), pages - 1))
+    start = page * _PAGE
     buttons = [
-        _btn(_provider_label(p), {"hermes_model_pick": {"a": "p", "pid": pid, "i": i}})
-        for i, p in enumerate(providers)
+        _btn(_provider_label(p), {"hermes_model_pick": {"a": "p", "pid": pid, "i": start + k}})
+        for k, p in enumerate(providers[start:start + _PAGE])
     ]
-    buttons.append(_btn("✗ 取消", {"hermes_model_pick": {"a": "x", "pid": pid}}))
+    nav: List[Dict[str, Any]] = []
+    if page > 0:
+        nav.append(_btn("◀ 上一页", {"hermes_model_pick": {"a": "pp", "pid": pid, "pg": page - 1}}))
+    if page < pages - 1:
+        nav.append(_btn("下一页 ▶", {"hermes_model_pick": {"a": "pp", "pid": pid, "pg": page + 1}}))
+    nav.append(_btn("✗ 取消", {"hermes_model_pick": {"a": "x", "pid": pid}}))
     md = (
         f"**当前**：`{current_model}`（`{current_provider}`）\n"
-        "点击提供方查看模型："
+        f"点击提供方查看模型（第 {page + 1}/{pages} 页）："
     )
-    return _card("🤖 切换模型 · 选择提供方", "blue", md, buttons, per_row=1)
+    card = _card("🤖 切换模型 · 选择提供方", "blue", md, buttons, per_row=1)
+    card["body"]["elements"].extend(_rows(nav, per_row=2))
+    return card
 
 
 def _models_card(pid: int, st: Dict[str, Any], i: int, page: int) -> Dict[str, Any]:
@@ -263,6 +285,10 @@ def _handle_click(adapter, event, pick: Dict[str, Any]):
         if a == "pg":
             return adapter._card_response(_models_card(
                 pid, st, int(pick.get("i") or 0), int(pick.get("pg") or 0)))
+        if a == "pp":
+            return adapter._card_response(_provider_card(
+                pid, st.get("providers") or [], st.get("current_model") or "",
+                st.get("current_provider") or "", int(pick.get("pg") or 0)))
         if a == "m":
             operator = getattr(event, "operator", None)
             open_id = str(getattr(operator, "open_id", "") or "")
@@ -300,10 +326,41 @@ async def _complete_pick(adapter, pid: int, i: int, mi: int) -> None:
     st = _PICKERS.pop(pid, None) or {}
     providers = st.get("providers") or []
     chat_id = str(st.get("chat_id") or "")
+    mid = str(st.get("message_id") or "")
+
+    async def _push_card(card: Dict[str, Any], text: str) -> None:
+        """把卡片原地 PATCH 回原消息；拿不到 message_id 时退化为文本重发。"""
+        if mid and chat_id and getattr(adapter, "_client", None):
+            try:
+                from lark_oapi.api.im.v1 import PatchMessageRequest, PatchMessageRequestBody
+                body = PatchMessageRequestBody.builder().content(
+                    json.dumps(card, ensure_ascii=False)).build()
+                req = PatchMessageRequest.builder().message_id(mid).request_body(body).build()
+                resp = await adapter._run_blocking(adapter._client.im.v1.message.patch, req)
+                if adapter._response_succeeded(resp):
+                    return
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[FeishuModelPicker] card update failed: %s", exc)
+        if chat_id:
+            try:
+                await adapter._feishu_send_with_retry(
+                    chat_id=chat_id, msg_type="text",
+                    payload=json.dumps({"text": ("🤖 " + text)[:4000]}, ensure_ascii=False),
+                    reply_to=None, metadata=None)
+            except Exception:
+                logger.warning("[FeishuModelPicker] fallback send failed", exc_info=True)
+
     try:
         model_id = str(providers[i]["models"][mi])
         slug = str(providers[i].get("slug") or "")
-    except Exception:
+    except Exception as exc:  # noqa: BLE001
+        # 缺陷 #13 修复：索引越界/结构异常不再静默 return（用户卡片会永久停在「⏳ 正在切换…」）。
+        # _PICKERS.pop 已把状态弹掉，故先取出局部 mid/chat_id 才能回写；此处不再静默。
+        logger.warning("[FeishuModelPicker] complete_pick 选择已失效 pid=%s i=%s mi=%s: %s",
+                       pid, i, mi, exc)
+        await _push_card(
+            _card("❌ 选择已失效", "red", "卡片数据已过期或结构异常，请重新发送 `/model` 再选一次。"),
+            "选择已失效，请重新发送 /model 再选一次。")
         return
     ok = False
     text = "选择已失效，未执行切换。"
@@ -321,28 +378,10 @@ async def _complete_pick(adapter, pid: int, i: int, mi: int) -> None:
             text = f"切换失败：{exc}"
     logger.info("[FeishuModelPicker] switch model=%s provider=%s ok=%s", model_id, slug, ok)
     card = _card("✅ 已切换" if ok else "❌ 切换失败", "green" if ok else "red", text)
-    mid = str(st.get("message_id") or "")
-    if mid and chat_id and getattr(adapter, "_client", None):
-        try:
-            # 2026-10-04 修复：原走 SDK 的 message.update（PUT）—— 对 interactive 会报
-            # 230001 invalid msg_type（与菜单卡翻页同一坑）；改走 PATCH，与 menu-bridge 一致。
-            from lark_oapi.api.im.v1 import PatchMessageRequest, PatchMessageRequestBody
-            body = PatchMessageRequestBody.builder().content(
-                json.dumps(card, ensure_ascii=False)).build()
-            req = PatchMessageRequest.builder().message_id(mid).request_body(body).build()
-            resp = await adapter._run_blocking(adapter._client.im.v1.message.patch, req)
-            if adapter._response_succeeded(resp):
-                return
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("[FeishuModelPicker] card update failed: %s", exc)
-    if chat_id:
-        try:
-            await adapter._feishu_send_with_retry(
-                chat_id=chat_id, msg_type="text",
-                payload=json.dumps({"text": ("🤖 " + text)[:4000]}, ensure_ascii=False),
-                reply_to=None, metadata=None)
-        except Exception:
-            logger.warning("[FeishuModelPicker] fallback send failed", exc_info=True)
+    # 2026-10-04 修复：原走 SDK 的 message.update（PUT）—— 对 interactive 会报
+    # 230001 invalid msg_type（与菜单卡翻页同一坑）；改走 PATCH，与 menu-bridge 一致。
+    # 缺陷 #13 修复：PATCH / 文本重发逻辑抽到 _push_card，供上面「索引失败」路径复用。
+    await _push_card(card, text)
 
 
 # ── 补丁安装 ────────────────────────────────────────────
@@ -423,7 +462,7 @@ async def send_model_picker(self, chat_id: str, providers: List[dict], current_m
             "session_key": session_key, "on_model_selected": on_model_selected,
             "current_model": current_model, "current_provider": current_provider, "ts": time.time(),
         }
-        card = _provider_card(pid, list(providers or []), current_model, current_provider)
+        card = _provider_card(pid, list(providers or []), current_model, current_provider, 0)
         response = await self._feishu_send_with_retry(
             chat_id=chat_id, msg_type="interactive",
             payload=json.dumps(card, ensure_ascii=False), reply_to=None, metadata=metadata)
