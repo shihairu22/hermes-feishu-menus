@@ -1,10 +1,10 @@
-327d1ad4b441d5db5ac3ef5ba2dde683efed80f8710d90deaf885ad963e728d1  ./CHANGELOG.md
-ec1bb468242a3f255585781aae5215941b0b4297348f151f4dccc6eeb289fa49  ./README.md
-94092851e6dcb29db9635bb663f9ba2747fc84fb2b02834c8d612db42d3da0c5  ./SANITIZED.md
-3a3119c588c2d35d52736cdb3f6f55ba3c8e9c7a93aefbcd08d1011efe843fc0  ./SETUP.md
+7a876e483ec9b730db60a463347e96251ef75b08ed6378fcbe981d258043bd98  ./CHANGELOG.md
+6ee174bd17420e9dd6c3d489b5cc0b7477d18069539234758aeb87e2ffe31fc1  ./README.md
+a56e85ea7fa1c9a8c9a8771e21551ad63c76df4112d1ec192b2bdc55cf3fad8e  ./SANITIZED.md
+7c6a57f5c4669611f7deb54f816fde8ab228242d104af0d967d54da3140811ad  ./SETUP.md
 9c12994722fbee50e29c354756722f755809afc7d7d78cef75da04eda24bfa90  ./SKILL.md
-aaf5da25e08e26fbd9f840305e572481d07d987a65433c6dc7a184d6eeafcad6  ./assets/feishu-menu-bridge/SHA256SUMS
-f4484b6337292bd1f3a31f0626e45ee1067085e70f49a04714cc7b0019b33eb8  ./assets/feishu-menu-bridge/__init__.py
+7ff42059388ac851e56fe8e14d665754f15aa3cc95035cc8a06817edba8ff837  ./assets/feishu-menu-bridge/SHA256SUMS
+835c1a3b1808c8fe308157742af6bec46cfd7e936114a948077f0082b6f9e4f2  ./assets/feishu-menu-bridge/__init__.py
 da92a23f29c3655784e264ddb8f73ac915a8b7ec0b37239d2fc133116a6591ab  ./assets/feishu-menu-bridge/keeper.py
 5d05d4a51aecbcda1d876a48dee3909f63273f97ed7ceb4d28a34244d3595dfb  ./assets/feishu-menu-bridge/plugin.yaml
 57b0090aeff837c573a3d044b44d2f3e3c704b0d49eb3f8c187fb73112b25f53  ./assets/feishu-menu-bridge/skill_zh.json
@@ -28,6 +28,6 @@ ec179e38c076f439f0bef613678576de28208bc6d449ecf6032d1cc7794dd190  ./scripts/chec
 d310effd57996cc1aef68438fc4801bf3c212ac621559c49886246be2ced7cdb  ./scripts/install-feishu-model-picker.sh
 7de7f9115df47d9eef0476ef375a4fc7197e8c8e2724117c2dc312a6202a335d  ./scripts/install.sh
 9e9a6c8a8d9bad5e34cdfdb956e13924eb5710331b5d34d49eab132bcc35967c  ./scripts/regen-sums.py
-765ab6ea20d7eaa4261e368d85014a032506278655dc9737939871ce598da451  ./scripts/sanitize-live-to-assets.py
+f6b1b70d5e11dc42020ea93d2e81e271e7fb4a578fdcbf650295dd7831099f1a  ./scripts/sanitize-live-to-assets.py
 4966dca9385958214c433a5db76a66ba1bf5c6ecc6371a8f092aba1a8bca97fc  ./scripts/scan-leaks.py
 9ead9e15538a3d4fb1bb367a177c3eeb526c69e224a58a2184e5536ef7a6692e  ./scripts/skill_zh_autofill.py

@@ -88,21 +88,11 @@ RULES = [
      '"web": "网页",'),
 
     # ---- overlay：分发版有意差异（非去敏）----
-    ("feishu-menu-bridge", "__init__.py", "overlay:pt-note",
-     '        _note("🚫 签到一律不走代理（避免国外 IP 触发风控）；点「全部签到」按顺序逐站跑一遍。"),',
-     '        _note("数据来自 $PT_SESSIONS_DIR/state/（默认 ~/.pt-sessions/state/）：'
-     'sites.json 存站点清单，checkin_runs.json 存每轮结果。本卡只读，不发起签到。"),'),
-
-    ("feishu-menu-bridge", "__init__.py", "overlay:pt-buttons",
-     '        _cmd_btn("🌱 全部签到", "签到pt", "primary_filled"),\n'
-     '        _cmd_btn("🔍 只看失败", "签到pt，只看失败的"),\n',
-     ''),
-
-    ("feishu-menu-bridge", "__init__.py", "overlay:pt-docstring",
-     '    """设计稿 v7：站点/已签到 两格（有失败才高亮）+ 最近一轮逐站明细 + 全部签到/只看失败/刷新/收起。\n'
-     '    零数据时走空状态早返回（见下方）。"""',
-     '    """设计稿 v7：站点/已签到 两格（有失败才高亮）+ 最近一轮逐站明细 + 刷新/收起。\n'
-     '    零数据时走空状态早返回（见下方）。"""'),
+    # 2026-10-07：PT 卡的三条 overlay（pt-note / pt-buttons / pt-docstring）已**全部撤掉**。
+    # 原因：签到按钮改成**代码内能力门控**（live 的 `_pt_ready()`：装了 pt-site-keepalive
+    # 技能才渲染、才可点）。没装技能的机器上按钮自然不出现，备注也自动换成数据来源说明——
+    # 于是 live 与分发版**代码完全一致**，不再需要「分发版专用」的差异规则。
+    # 教训：能用代码自适应的差异，不要藏进 overlay 表。
 
     # ===== feishu-menu-bridge/plugin.yaml =====
     ("feishu-menu-bridge", "plugin.yaml", "sanitize:author",

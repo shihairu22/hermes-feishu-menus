@@ -452,6 +452,35 @@ def _pt_last_run() -> Optional[Dict[str, Any]]:
         return None
 
 
+def _pt_ready() -> bool:
+    """本机是否具备 PT 签到能力 = 装了响应「签到pt」的技能（pt-site-keepalive）。
+
+    为什么门控：PT 卡的签到按钮回注的是**自然语言**「签到pt」，网关不认它、必然落进模型。
+    没有该技能的机器上点一下 = 让模型空转烧 token（「误触模型」的根因）。
+    所以按钮按能力渲染；点击时再校验一次，防「渲染时有、点击时没了」的旧卡。
+    """
+    try:
+        root = Path(_HOME_DIR) / "skills"
+        return (root / "pt-site-keepalive" / "SKILL.md").is_file() or any(
+            root.glob("*/pt-site-keepalive/SKILL.md"))
+    except Exception:
+        return False
+
+
+# 按钮能力表：按钮值里的 ``hermes_menu_require`` 指向这里的名字。
+_CAPABILITIES = {"pt": _pt_ready}
+
+_CAP_HINT = {
+    "pt": "本机没有 PT 签到能力（未装 pt-site-keepalive 技能），已跳过——不会让模型空转。",
+}
+
+
+def _cap_ok(name: str) -> bool:
+    """能力是否就绪。未登记的能力名一律放行（只拦明确登记过的）。"""
+    fn = _CAPABILITIES.get(str(name))
+    return True if fn is None else bool(fn())
+
+
 # ── 卡片构件（schema 2.0：等宽按钮行 + 2×2 指标格 + 蓝灰分层）──────────
 #
 # 设计要点（来自官方设计规范 + 真机样张自检）：
@@ -484,8 +513,13 @@ def _btn(label: str, value: Dict[str, Any], kind: str = "default") -> Dict[str, 
     }
 
 
-def _cmd_btn(label: str, cmd: str, kind: str = "default") -> Dict[str, Any]:
-    return _btn(label, {"hermes_menu_cmd": cmd}, kind)
+def _cmd_btn(label: str, cmd: str, kind: str = "default",
+             require: str = "") -> Dict[str, Any]:
+    """回注一条命令的按钮。``require`` 非空时，值里带能力名，点击侧会再校验一次。"""
+    value: Dict[str, Any] = {"hermes_menu_cmd": cmd}
+    if require:
+        value["hermes_menu_require"] = require
+    return _btn(label, value, kind)
 
 
 def _refresh_btn(name: str) -> Dict[str, Any]:
@@ -993,8 +1027,8 @@ def build_system_card(chat_id: str = "") -> Dict[str, Any]:
 
 
 def build_pt_card(chat_id: str = "") -> Dict[str, Any]:
-    """设计稿 v7：站点/已签到 两格（有失败才高亮）+ 最近一轮逐站明细 + 刷新/收起。
-    零数据时走空状态早返回（见下方）。"""
+    """设计稿 v7：站点/已签到 两格（有失败才高亮）+ 最近一轮逐站明细 + 刷新/收起；
+    PT 就绪（装了 pt-site-keepalive 技能）时多两个签到按钮。零数据时走空状态早返回。"""
     total_all = _pt_sites()
     run = _pt_last_run() or {}
     sites = [x for x in list(run.get("sites") or []) if isinstance(x, dict)]
@@ -1064,7 +1098,11 @@ def build_pt_card(chat_id: str = "") -> Dict[str, Any]:
                                 accent=True, tone=_DOM_DATA),
                     _usage_cell("✅ 已签到", done_v, done_k, accent=bool(bad),
                                 vsize="normal", tone=_DOM_DATA)),
-        _note("数据来自 $PT_SESSIONS_DIR/state/（默认 ~/.pt-sessions/state/）：sites.json 存站点清单，checkin_runs.json 存每轮结果。本卡只读，不发起签到。"),
+        # 2026-10-07：备注按能力二选一——没有签到能力时不该提「点全部签到」。
+        _note("🚫 签到一律不走代理（避免国外 IP 触发风控）；点「全部签到」按顺序逐站跑一遍。"
+              if _pt_ready() else
+              "数据来自 $PT_SESSIONS_DIR/state/（默认 ~/.pt-sessions/state/）："
+              "sites.json 存站点清单，checkin_runs.json 存每轮结果。本卡只读，不发起签到。"),
     ]
     # 2026-10-04：异常站改用表格（彩色状态标签 + 对齐更清楚），只列失败/跳过；
     # 全部通过时给一行确认，不占地方。数据源与下面的文字明细同一份（run["sites"]）。
@@ -1102,7 +1140,12 @@ def build_pt_card(chat_id: str = "") -> Dict[str, Any]:
         _panel_element("📋 **最近一轮明细**　" + (f"{len(sites)}/{total or '?'} 站" if sites else "未逐站记录"), body),
         {"tag": "hr"},
     ]
-    el += _rows([
+    # 2026-10-07：签到按钮按能力渲染——没装 PT 技能的机器上，这两个按钮回注的
+    # 自然语言命令没人认，只能落进模型空转（「误触模型」）。能力在就显示、不在就不显示。
+    _pt_btns = ([_cmd_btn("🌱 全部签到", "签到pt", "primary_filled", require="pt"),
+                 _cmd_btn("🔍 只看失败", "签到pt，只看失败的", require="pt")]
+                if _pt_ready() else [])
+    el += _rows(_pt_btns + [
         _refresh_btn("PT"),
         _btn("✕ 收起", {"hermes_menu_close": True}),
     ])
@@ -3581,6 +3624,12 @@ def _handle_card_click(adapter: Any, event: Any, value: Dict[str, Any]):
         cmd = value.get("hermes_menu_cmd")
         card_name = value.get("hermes_menu_card")
         if cmd:
+            # 2026-10-07：能力门控（见 _cmd_btn 的 require 参数）。旧卡（渲染时有能力、
+            # 点击时没了）也拦得住——否则会回注一条模型读不懂的命令、白烧 token。
+            _need = str(value.get("hermes_menu_require") or "")
+            if _need and not _cap_ok(_need):
+                return _toast(_CAP_HINT.get(_need,
+                               "本机未配置该能力（%s），已跳过" % _need), "warning")
             _cmd_s = str(cmd)
             if _bad := _click_guard(loop, "", "命令", "cmd=%s" % _cmd_s):
                 return _bad
@@ -3686,9 +3735,10 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 114  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 115  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
+              # 115 = 2026-10-07 PT 签到按钮改**能力门控**：装了 pt-site-keepalive 技能才渲染/才可点
 
 
 def _is_our_value(value: Any) -> bool:
