@@ -126,6 +126,7 @@ sha256sum -c MANIFEST.sha256                        # 校验本包完整性
 | 📈用量 的**波形块** | `$HERMES_HOME/tools/wave_shared.py` + `usage_wave.py` | 显示一行「波形块未启用」提示（**不再静默留白**），卡片其余部分正常 |
 | 🌱PT | `$PT_SESSIONS_DIR/state/*.json` | 显示 `? 站 · 尚无记录` |
 | 🖥系统 | 本机实时读数 | 不受影响 |
+| 🧾系统详情 | 本机实时读数 | 不受影响（系统卡「📊 详情」的落点；2026-10-08 前该按钮误指向「洞察」卡） |
 
 **关于 Hermes 安装位置：** 插件不再写死 `/usr/local/lib/hermes-agent`，而是按顺序自动探测 ——
 

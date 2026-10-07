@@ -1,10 +1,10 @@
-7a876e483ec9b730db60a463347e96251ef75b08ed6378fcbe981d258043bd98  ./CHANGELOG.md
-6ee174bd17420e9dd6c3d489b5cc0b7477d18069539234758aeb87e2ffe31fc1  ./README.md
+69f3dc801332e69ffddff4f88f93d121eefd06fe2e0712ce952efd005a5ffca0  ./CHANGELOG.md
+518b57c9c0a55b16a7ef82ea50000b752bec2f58cadc3ea32ba35067c81b9d57  ./README.md
 a56e85ea7fa1c9a8c9a8771e21551ad63c76df4112d1ec192b2bdc55cf3fad8e  ./SANITIZED.md
 7c6a57f5c4669611f7deb54f816fde8ab228242d104af0d967d54da3140811ad  ./SETUP.md
-9c12994722fbee50e29c354756722f755809afc7d7d78cef75da04eda24bfa90  ./SKILL.md
-7ff42059388ac851e56fe8e14d665754f15aa3cc95035cc8a06817edba8ff837  ./assets/feishu-menu-bridge/SHA256SUMS
-835c1a3b1808c8fe308157742af6bec46cfd7e936114a948077f0082b6f9e4f2  ./assets/feishu-menu-bridge/__init__.py
+97a86ed46e1c499e2325b90faeea27acd746068f7147d4d5b92f35684a5f72bd  ./SKILL.md
+fe6326574a03dd0eaa7dfda0f75e8b9b4484d165ad33c6dae9ef921eadcc5146  ./assets/feishu-menu-bridge/SHA256SUMS
+d3892639ab0c9885dd1655a872ed89cac1ea1121e86fc17c45758a65046ca857  ./assets/feishu-menu-bridge/__init__.py
 da92a23f29c3655784e264ddb8f73ac915a8b7ec0b37239d2fc133116a6591ab  ./assets/feishu-menu-bridge/keeper.py
 5d05d4a51aecbcda1d876a48dee3909f63273f97ed7ceb4d28a34244d3595dfb  ./assets/feishu-menu-bridge/plugin.yaml
 57b0090aeff837c573a3d044b44d2f3e3c704b0d49eb3f8c187fb73112b25f53  ./assets/feishu-menu-bridge/skill_zh.json
@@ -17,7 +17,7 @@ da92a23f29c3655784e264ddb8f73ac915a8b7ec0b37239d2fc133116a6591ab  ./assets/feish
 b0654b64b423cb89612ecaf4b794b8ef06af386ad683fa22f1c3f313fca44f69  ./references/card-palette-and-verified-components.md
 22cd566e62f94a36784b090988160de263cf6ad5ab8eb17d37acdd6080f849ff  ./references/cardkit-partial-update-and-animation.md
 08ea2da5e89109448ec8aa0962ff69eca254102c821d67998026d98f3a86148e  ./references/known-debt.md
-754dbe1b4c6d4bbd6e2003be1ce119b2412ec4b253582ec3868572f054d1ccdf  ./references/paging-and-card-inventory.md
+5eb0b064f8557efd4039dcc46471c00b5066d7d11e0673cbb2afba5282fa13ca  ./references/paging-and-card-inventory.md
 9ae19b406b6fab90e57d38efe10bbc8e9d388ad4a0be7fbfeec501bfbf0cb5cf  ./scripts/apply-quick-commands.py
 5c760848df378cc6d00541931bdbc20548cd757922afe37f38fb5332aebc796b  ./scripts/build-console-snippet.py
 ec179e38c076f439f0bef613678576de28208bc6d449ecf6032d1cc7794dd190  ./scripts/check-assets-sync.sh

@@ -145,8 +145,8 @@ GROUPS: List[Tuple[str, List[str]]] = [
 #: 删「模型」（死代码，走 /model 点选器）、补「洞察」（入口在系统卡/用量卡，也登记在此供审计对齐）。
 #: 注：「模型」不在这里 —— 2026-10-04 用户要求「设置里模型要跟面板里那个效果一样」，
 #:     所以「模型」改回发 /model（= 飞书点选器插件给的「切换模型 · 选择提供方」交互卡）。
-CARD_NAMES = ("面板", "系统", "PT", "技能", "帮助", "用量", "命令表", "人格", "状态", "推理",
-              "任务", "洞察", "忙时", "版本")
+CARD_NAMES = ("面板", "系统", "系统详情", "PT", "技能", "帮助", "用量", "命令表", "人格",
+              "状态", "推理", "任务", "洞察", "忙时", "版本")
 
 #: 文字型入口 → 改写目标（**真实内置命令**）。
 #: 2026-10-02 修正：原实现假设存在 /停止 /新会话 这类中文斜杠命令，
@@ -1015,7 +1015,7 @@ def build_system_card(chat_id: str = "") -> Dict[str, Any]:
     ]
     el += _rows([
         _refresh_btn("系统"),
-        _btn("📊 详情", {"hermes_menu_card": "洞察"}),
+        _btn("📊 详情", {"hermes_menu_card": "系统详情"}),
         _cmd_btn("🧹 清理", "清理磁盘：先只做只读盘点并告诉我能回收多少，等我确认再删"),
         _btn("✕ 收起", {"hermes_menu_close": True}),
     ])
@@ -1024,6 +1024,77 @@ def build_system_card(chat_id: str = "") -> Dict[str, Any]:
                      ("red" if _pct_num(s["disk_pct"]) >= 85 else "neutral", f"磁盘 {s['disk_pct']}"),
                      ("red" if _pct_num(s["mem_pct"]) >= 85 else "neutral", f"内存 {s['mem_pct']}"),
                  ])
+
+
+def _pick(pattern: str, text: str, default: str = "—") -> str:
+    """从命令输出里抠第一捕获组；没匹配返回 default（卡片不显示空串/None）。"""
+    m = re.search(pattern, text or "")
+    return m.group(1) if m else default
+
+
+def build_system_detail_card(chat_id: str = "") -> Dict[str, Any]:
+    """「系统详情」卡：系统卡那颗「📊 详情」的落点 —— 把**主机这一层**摊开。
+
+    2026-10-08 修复：系统卡的「📊 详情」原先误指向「洞察」卡（复制粘贴债），
+    用户点「详情」看到的是用量洞察、与「洞察」按钮一模一样。本卡补上真正的系统详情；
+    系统卡保持摘要四格（磁盘/内存/负载/运行），细节都收在这里。
+
+    数据全部本机只读采集（``_run``），取不到显示「—」，不编造、不写盘、不改配置。
+    """
+    s = _host_stats()
+    os_pretty = _run(". /etc/os-release 2>/dev/null && printf '%s' \"$PRETTY_NAME\"") or "—"
+    kernel = _run("uname -sr") or "—"
+    arch = _run("uname -m") or "—"
+    host = _run("hostname") or "—"
+    cpu_model = _run("grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//'") or "—"
+    modules = _run("lsmod | tail -n +2 | wc -l") or "—"
+    mem = _run("free -h | awk 'NR==2{print $3\"|\"$2\"|\"$7}'")
+    m_used, m_total, m_avail = (mem.split("|") + ["—", "—", "—"])[:3]
+    sw = _run("free -h | awk 'NR==3{print $3\"|\"$2}'")
+    sw_used, sw_total = (sw.split("|") + ["—", "—"])[:2]
+    df_out = _run("df -h -x tmpfs -x devtmpfs -x squashfs -x efivarfs -x overlay 2>/dev/null") or "（无数据）"
+    ps_out = _run("ps -eo pid,comm,%cpu,%mem --sort=-%cpu 2>/dev/null | head -6") or "（无数据）"
+    route = _run("ip route 2>/dev/null | grep -m1 default")
+    gw, iface = _pick(r"via\s+(\S+)", route), _pick(r"dev\s+(\S+)", route)
+    ips = _run("hostname -I 2>/dev/null").split()
+    ip4 = next((x for x in ips if ":" not in x), "—")
+    ip6 = next((x for x in ips if ":" in x), "")
+
+    el: List[Dict[str, Any]] = [
+        _panel_element("🧾 **主机**", "\n".join([
+            "**主机**　`%s`" % host,
+            "**系统**　%s" % os_pretty,
+            "**内核**　`%s` · %s" % (kernel, arch),
+            "**处理器**　%s（%s 核）" % (cpu_model, s.get("cpu", "?")),
+            "**运行**　%s" % _zh_uptime(s.get("uptime", "")),
+            "**内核模块**　%s 个" % modules,
+        ]), expanded=True),
+        _metric_row(
+            _usage_cell("⚡ 负载", (s.get("load", "").split() or ["—"])[0], "1 / 5 / 15 分", tone=_DOM_DATA),
+            _usage_cell("🧠 内存", m_used, "共 %s · 可用 %s" % (m_total, m_avail), tone=_DOM_DATA),
+            _usage_cell("💱 交换", sw_used, "共 %s" % sw_total, tone=_DOM_DATA),
+        ),
+        _panel_element("💽 **挂载点明细**", "```\n%s\n```" % df_out[:700]),
+        _panel_element("🔥 **占用最高的进程**", "```\n%s\n```" % ps_out[:700]),
+        _panel_element("🌐 **网络**", "\n".join(
+            ["**默认网关**　%s（%s）" % (gw, iface), "**本机地址**　%s" % ip4]
+            + (["**IPv6**　%s" % ip6] if ip6 else [])
+        )),
+        _note("口径：本机实时只读读数；取不到的项显示「—」。磁盘/内存是整机口径，不是单进程。"),
+        {"tag": "hr"},
+    ]
+    el += _rows([
+        _refresh_btn("系统详情"),
+        _btn("🖥 系统卡", {"hermes_menu_card": "系统"}),
+        _btn("✕ 收起", {"hermes_menu_close": True}),
+    ])
+    tags = []
+    if _pct_num(s.get("disk_pct")) >= 85:
+        tags.append(("red", "磁盘 %s" % s["disk_pct"]))
+    if _pct_num(s.get("mem_pct")) >= 85:
+        tags.append(("red", "内存 %s" % s["mem_pct"]))
+    return _card("🧾 系统详情", _DOM_DATA, el,
+                 subtitle="%s · 刷新于 %s" % (host, _now_hm()), tags=tags or None)
 
 
 def build_pt_card(chat_id: str = "") -> Dict[str, Any]:
@@ -3134,6 +3205,7 @@ def _ensure_send_cardify(adapter: Any) -> bool:
 CARD_BUILDERS = {
     "面板": build_panel_card,
     "系统": build_system_card,
+    "系统详情": build_system_detail_card,
     "PT": build_pt_card,
     "技能": build_skills_card,
     "帮助": build_help_card,
@@ -3735,10 +3807,11 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 115  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 116  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
               # 115 = 2026-10-07 PT 签到按钮改**能力门控**：装了 pt-site-keepalive 技能才渲染/才可点
+# 116 = 2026-10-08 系统卡「📊 详情」误指洞察 → 新增「系统详情」卡并指向它
 
 
 def _is_our_value(value: Any) -> bool:
