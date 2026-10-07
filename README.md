@@ -107,6 +107,32 @@ sha256sum -c MANIFEST.sha256                        # 校验本包完整性
 - **`🌱PT` 卡片是只读的**：它读 `$PT_SESSIONS_DIR`（默认 `~/.pt-sessions`）下的两个 JSON 文件渲染签到明细，**不发起签到**，卡片上也**没有**「全部签到」按钮（那条命令得对接你自己的签到脚本）。没有数据文件时卡片照常打开、显示 `? 站 · 尚无记录`。文件格式见 `SETUP.md`「PT 卡的数据来源」。
 - 部分操作需要**重启或热加载 Hermes 网关**的权限。
 
+## 依赖与降级（装之前先知道）
+
+插件**不依赖任何第三方库**（纯标准库），但有几处会读**本机 Hermes 的文件**。缺了不会崩，只会降级 —— 下表是实测结果，不是推断：
+
+| 卡 / 功能 | 依赖 | 缺了会怎样（实测） |
+|---|---|---|
+| 全部 **23 项菜单** | 插件 + 重启网关 | **23/23 全部命中**（10 项转成内置命令、13 项出卡片） |
+| 🎭人格 / 📜命令表 | Hermes 安装目录里的 `hermes_cli/personality.py`、`hermes_constants.py`、`hermes_cli/commands.py` | **自动探测**，见下方说明；全都找不到才会降级（人格 14→0 个内置、命令表 67→23 条） |
+| 🧠推理 | 插件自带档位表 | 不受影响 |
+| 🩺状态 / 📈用量 / 🔍洞察 | `$HERMES_HOME/state.db` | 任何 Hermes 都有；无数据时显示空值 |
+| 📈用量 的**波形块** | `$HERMES_HOME/tools/wave_shared.py` + `usage_wave.py` | 显示一行「波形块未启用」提示（**不再静默留白**），卡片其余部分正常 |
+| 🌱PT | `$PT_SESSIONS_DIR/state/*.json` | 显示 `? 站 · 尚无记录` |
+| 🖥系统 | 本机实时读数 | 不受影响 |
+
+**关于 Hermes 安装位置：** 插件不再写死 `/usr/local/lib/hermes-agent`，而是按顺序自动探测 ——
+
+1. 环境变量 `HERMES_AGENT_DIR`（设了且存在就用它，尊重你的选择）
+2. 已装好的 `hermes_cli` 包位置（插件就跑在 Hermes 进程里，这条路最可靠）
+3. `sys.path` 里含 `hermes_cli/personality.py` 的目录
+4. 常见安装位置（`/usr/local/lib/hermes-agent`、`/opt/hermes-agent`、`~/.local/share/hermes-agent`、`~/hermes-agent`）
+5. 都没有才退回历史默认值
+
+所以 **pipx / venv / `~/.local` 安装同样能直接跑**，不必手动设环境变量；只有在非常规布局下才需要显式指定。
+
+> 用量卡的**波形块**依赖本机 `tools/` 下两个工具文件（**不在本包里**，属于可选增强）。没有就是那行提示，卡片不会报错。
+
 ## 常见问题
 
 **装完菜单没出现？**

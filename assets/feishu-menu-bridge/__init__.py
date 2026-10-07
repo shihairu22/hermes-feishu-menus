@@ -1165,7 +1165,51 @@ def _mini_bar(pct: Any, width: int = 10) -> str:
 # ── 批4-b：路径可迁移化（环境变量覆盖，默认=本机现值，行为零变化）──
 _PT_DIR = os.environ.get("PT_SESSIONS_DIR") or os.path.expanduser("~/.pt-sessions")
 _HOME_DIR = os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes")
-_AGENT_DIR = os.environ.get("HERMES_AGENT_DIR") or "/usr/local/lib/hermes-agent"
+
+
+def _detect_agent_dir() -> str:
+    """Hermes 安装目录（`hermes_cli/`、`hermes_constants.py` 所在的那一层）。
+
+    修因（2026-10-07 实测）：原来写死 `/usr/local/lib/hermes-agent`，装到
+    pipx / venv / `~/.local` 的机器上会让两张卡**静默**降级 ——
+    人格卡 14 → 0 个内置、命令表卡 67 → 23 条，且不报错，很难发现。
+
+    优先级：
+      1) 显式环境变量 `HERMES_AGENT_DIR`（存在即用，尊重用户/发行版选择）
+      2) 直接问已装好的 `hermes_cli` 包（本插件就跑在 Hermes 进程里，最可靠）
+      3) 扫 `sys.path`，找含 `hermes_cli/personality.py` 的目录
+      4) 常见安装位置探测
+      5) 退回历史默认值（与改前行为一致，不引入新失败模式）
+    """
+    env = (os.environ.get("HERMES_AGENT_DIR") or "").strip()
+    if env and os.path.isdir(env):
+        return env
+    try:
+        import hermes_cli  # type: ignore
+        p = Path(getattr(hermes_cli, "__file__", "") or "")
+        if p.name == "__init__.py":
+            cand = p.parent.parent
+            if (cand / "hermes_constants.py").exists() or (cand / "hermes_cli").is_dir():
+                return str(cand)
+    except Exception:
+        pass
+    try:
+        for entry in list(sys.path):
+            if not entry:
+                continue
+            if (Path(entry) / "hermes_cli" / "personality.py").exists():
+                return str(Path(entry))
+    except Exception:
+        pass
+    for cand in ("/usr/local/lib/hermes-agent", "/opt/hermes-agent",
+                 os.path.expanduser("~/.local/share/hermes-agent"),
+                 os.path.expanduser("~/hermes-agent")):
+        if os.path.isdir(cand):
+            return cand
+    return env or "/usr/local/lib/hermes-agent"
+
+
+_AGENT_DIR = _detect_agent_dir()
 _PY_BIN = os.environ.get("HERMES_PYTHON") or "/usr/bin/python3"
 _WAVE_STATE = _HOME_DIR + "/state/usage_wave.json"
 _WAVE_CACHE: Dict[str, Any] = {}
@@ -1271,8 +1315,15 @@ def _wave_block() -> List[Dict[str, Any]]:
     数据取自 usage_wave.py 的状态文件（真实轮次，不重算）。
     按钮回调走 hermes_menu_wave，和独立波形卡同一套逻辑。
     """
-    if _WS is None:                      # 共享模块缺失：宁可隐藏波形块，也不显示错口径
-        return []
+    if _WS is None:
+        # 修因（2026-10-07）：原来静默 return []，别人机器上没有 tools/wave_shared.py
+        # 时波形块凭空消失、卡片看着像坏了。现在给一行可读的说明。
+        return [
+            {"tag": "markdown", "element_id": "wave_missing",
+             "content": "_🌊 波形块未启用：本机缺少 `tools/wave_shared.py`（可选增强，"
+                        "卡片其余部分不受影响）。_"},
+            {"tag": "hr"},
+        ]
     wst = _wave_state()
     rng = str(wst.get("current") or _WS.ORDER[0])
     info = (wst.get("ranges") or {}).get(rng) or {}
@@ -1280,7 +1331,11 @@ def _wave_block() -> List[Dict[str, Any]]:
     labels = info.get("labels") or []
     if not vals or not labels:
         logger.info("[FeishuMenuBridge] 波形块跳过：档位 %s 缺 vals/labels（状态文件没就绪？）", rng)
-        return []
+        return [
+            {"tag": "markdown", "element_id": "wave_nodata",
+             "content": "_🌊 波形块暂无数据（`state/usage_wave.json` 还没有这个档位的记录）。_"},
+            {"tag": "hr"},
+        ]
     opts = []
     for lb, n in zip(_WS.range_labels(rng), _WS.ORDER):
         opts.append({"text": {"tag": "plain_text",
