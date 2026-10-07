@@ -1,10 +1,10 @@
-c2c2a9276cd7e49d7e0ad160a8b2352415409646fced86ed52914a38a258fb5e  ./CHANGELOG.md
+7082c76e283cd79fb86275c48d3186f17189c9e3e8caeea65f7eb5fd19e11e43  ./CHANGELOG.md
 ec1bb468242a3f255585781aae5215941b0b4297348f151f4dccc6eeb289fa49  ./README.md
 94092851e6dcb29db9635bb663f9ba2747fc84fb2b02834c8d612db42d3da0c5  ./SANITIZED.md
 7d46c7ef611cb1af9178407ca08bf3d27e9515976c28363eed0b93dd7cd6fa6e  ./SETUP.md
 9c12994722fbee50e29c354756722f755809afc7d7d78cef75da04eda24bfa90  ./SKILL.md
-40323c83ffdbff2569a7c2654a70ab1367e543a903d3afe97254194feefe0119  ./assets/feishu-menu-bridge/SHA256SUMS
-21174c6abffc0aa591e694fbfe15476001dd32f8b0b6e788d6b6012b8737c304  ./assets/feishu-menu-bridge/__init__.py
+bf648616798c9caa0b10c184ff18fb2ab32c3843ce2859bfe69ec97bec66008f  ./assets/feishu-menu-bridge/SHA256SUMS
+60262f4078c1d5c2c10d4bf924b7c2bdb13c00b35b745e76a961903a8638377b  ./assets/feishu-menu-bridge/__init__.py
 da92a23f29c3655784e264ddb8f73ac915a8b7ec0b37239d2fc133116a6591ab  ./assets/feishu-menu-bridge/keeper.py
 a64c8b7228964da115bf6633e8a2ea67e9b94de63b4a349a9762c508d3f0c9e1  ./assets/feishu-menu-bridge/plugin.yaml
 57b0090aeff837c573a3d044b44d2f3e3c704b0d49eb3f8c187fb73112b25f53  ./assets/feishu-menu-bridge/skill_zh.json

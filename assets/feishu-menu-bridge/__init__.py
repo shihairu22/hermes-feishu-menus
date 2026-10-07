@@ -3651,7 +3651,7 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 111  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 112  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
 
@@ -4966,6 +4966,8 @@ def _diagnose(tag: str = "") -> None:
 
 _HEALTHCHECK = Path(_HOME_DIR + "/cache/scratch/menu_bridge_healthcheck.json")
 _ALLNONE_N = 0   # 连续「全部族都看不到目标类」的巡检次数（半死窗口自愈用，2026-10-04 审计加入）
+_SEEN_ANY_OK = False  # 本进程是否出现过「健康」巡检（2026-10-07 复审：非网关进程里目标类
+                      # 天然不可见，若只按「全 None」计数，Dashboard 会每 25 分钟空跑一次自愈）
 
 
 def _patch_health(tag: str = "") -> Dict[str, Any]:
@@ -5052,6 +5054,7 @@ def _health_tick(periodic: bool = False) -> None:
             return
         res = _patch_health(" periodic")
         if res["healthy"]:
+            globals()["_SEEN_ANY_OK"] = True
             globals()["_ALLNONE_N"] = 0
             logger.debug("[FeishuMenuBridge] health: %s", res)
         else:
@@ -5064,7 +5067,9 @@ def _health_tick(periodic: bool = False) -> None:
             # 改成只看「靠模块/类发现」的那几族：它们同时为 None 才是真的半死窗口。
             fams = res.get("families") or {}
             _discover = ("batch", "busy", "routing", "cardify", "resolved2")
-            if fams and all(fams.get(k) is None for k in _discover):
+            # 2026-10-07 复审：必须「本进程曾经健康过」——否则在 Dashboard / 一次性 CLI 进程里
+            # 目标类天然不可见，会误判成半死窗口并在错误进程里空跑重装。
+            if fams and globals().get("_SEEN_ANY_OK") and all(fams.get(k) is None for k in _discover):
                 globals()["_ALLNONE_N"] = int(globals().get("_ALLNONE_N", 0)) + 1
                 if globals()["_ALLNONE_N"] >= 5:
                     logger.warning("[FeishuMenuBridge] 目标类连续 %d 次全不可见，强制全量重装补丁",
