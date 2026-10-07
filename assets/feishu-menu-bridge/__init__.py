@@ -3120,6 +3120,26 @@ async def _send_text(adapter: Any, chat_id: str, text: str) -> None:
 
 # ── 钩子：菜单名 → 命令 / 卡片 ──────────────────────────────────
 
+def _sender_authorized(gateway: Any, source: Any) -> bool:
+    """复用网关自己的授权判断（与 ``_hm_admit_event`` 同一个谓词）。
+
+    仅用于「要发卡并吞掉消息」的路径。未授权 / 判断抛异常 / 谓词不存在，一律按**未授权**处理
+    （fail-closed），调用方必须放行原文，让网关照常走配对或拒绝。绝不在此改写或丢弃消息。
+    """
+    if gateway is None or source is None:
+        return False
+    try:
+        check = getattr(gateway, "_is_user_authorized_for_source", None)
+        if check is None:
+            logger.warning("[FeishuMenuBridge] 网关无 _is_user_authorized_for_source；"
+                           "按未授权处理（菜单卡片暂停，避免越权发卡）")
+            return False
+        return bool(check(source))
+    except Exception:
+        logger.warning("[FeishuMenuBridge] 授权判断异常，按未授权处理", exc_info=True)
+        return False
+
+
 async def _on_pre_gateway_dispatch(**kwargs: Any) -> Optional[dict]:
     event = kwargs.get("event")
     gateway = kwargs.get("gateway")
@@ -3133,6 +3153,13 @@ async def _on_pre_gateway_dispatch(**kwargs: Any) -> Optional[dict]:
         chat_id = str(getattr(source, "chat_id", "") or "")
         text = str(getattr(event, "text", "") or "").strip()
         if not text or chat_id == "":
+            return None
+        # F01（审计修复）：本钩子由上游在**鉴权之前**调用（run_inbound._hm_admit_event：
+        # 先跑本钩子，再查 _is_user_authorized_for_source）。所以发卡 / 吞消息之前必须先
+        # 复用网关的授权判断；未授权一律 return None 放行原文，交回网关的配对 / 拒绝流程
+        # —— 保留菜单改写能力，但不越权发卡。
+        if not _sender_authorized(gateway, source):
+            logger.info("[FeishuMenuBridge] 未授权来源，跳过菜单处理（交回网关）：chat=%s", chat_id)
             return None
         # 记录来源，供卡片按钮回注消息时复用（加锁 + 快照迭代，避免并发改 dict 抛异常）
         with _STATE_LOCK:
@@ -3586,8 +3613,9 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 109  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 110  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
+              # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
 
 
 def _is_our_value(value: Any) -> bool:
@@ -4755,6 +4783,12 @@ def _patch_batch_class(cls) -> bool:
                     logger.info("[FeishuMenuBridge] 菜单项改写成命令 %r → %r（跳过批处理）",
                                    text, COMMANDS[key])
                 elif key in CARD_BUILDERS:
+                    # F01（审计修复）：适配器批处理同样跑在网关鉴权之前。
+                    # 发卡前复用网关授权判断（适配器持有 gateway_runner）；未授权不发卡、放行原文。
+                    if not _sender_authorized(getattr(self, "gateway_runner", None),
+                                              getattr(event, "source", None)):
+                        logger.info("[FeishuMenuBridge] 未授权来源，批处理不发卡（交回网关）")
+                        return await orig(self, event)
                     chat_id = str(getattr(getattr(event, "source", None), "chat_id", "") or "")
                     if chat_id:
                         try:
