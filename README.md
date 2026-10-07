@@ -55,6 +55,7 @@ feishu-menus/
 ├── README.md                     # 本文件
 ├── SETUP.md                      # 环境准备 / 三步安装 / 排错
 ├── SANITIZED.md                  # 去敏说明与自检命令
+├── CHANGELOG.md                  # 更新说明（改了什么 / 影响谁 / 你要做什么）
 ├── MANIFEST.sha256               # 全包校验和
 ├── menu.json                     # 控制台悬浮菜单定义（5 组 23 项）
 ├── quick_commands.yaml           # 中文快捷命令片段（56 条）
@@ -77,6 +78,8 @@ feishu-menus/
     ├── feishu-menu-bridge/       # 菜单桥插件源码（4 个文件 + SHA256SUMS）
     └── feishu-model-picker/      # 点选器插件源码（3 个文件 + SHA256SUMS）
 ```
+
+> 版本变更与升级须知看 [`CHANGELOG.md`](CHANGELOG.md)。
 
 ## 常用命令
 
