@@ -1,0 +1,96 @@
+# 中文快捷命令 —— 直接发送 /<中文名> 即可（文本级改写，不进模型，零 token）
+#   alias 型 = 映射到原生命令；exec 型 = 直接执行本机命令（30 秒超时）
+# 由 scripts/apply-quick-commands.py 合并进 $HERMES_HOME/config.yaml
+quick_commands:
+  新会话: {type: alias, target: /new}
+  状态: {type: alias, target: /status}
+  重试: {type: alias, target: /retry}
+  回退: {type: alias, target: /undo}
+  压缩: {type: alias, target: /compress}
+  标题: {type: alias, target: /title}
+  分支: {type: alias, target: /branch}
+  导出: {type: alias, target: /save}
+  会话列表: {type: alias, target: /sessions}
+  恢复: {type: alias, target: /resume}
+  后台: {type: alias, target: /bg}
+  排队: {type: alias, target: /queue}
+  任务: {type: alias, target: /agents}
+  停止: {type: alias, target: /stop}
+  插话: {type: alias, target: /steer}
+  目标: {type: alias, target: /goal}
+  心跳: {type: alias, target: /heartbeat}
+  循环: {type: alias, target: /loop}
+  评审: {type: alias, target: /review}
+  沉淀: {type: alias, target: /refine}
+  语音条: {type: alias, target: /voice tts}
+  主页: {type: alias, target: /sethome}
+  模型: {type: alias, target: /model}
+  人格: {type: alias, target: /personality}
+  推理: {type: alias, target: /reasoning}
+  审批: {type: alias, target: /approvals}
+  忙碌: {type: alias, target: /busy}
+  页脚: {type: alias, target: /footer}
+  加速: {type: alias, target: /fast}
+  磁盘: {type: exec, command: "df -h /"}
+  内存: {type: exec, command: "free -h"}
+  负载: {type: exec, command: "uptime"}
+  时间: {type: exec, command: "date '+%F %T %Z'"}
+  帮助: {type: alias, target: /help}
+  命令表: {type: alias, target: /commands}
+  用量: {type: alias, target: /usage}
+  洞察: {type: alias, target: /insights}
+  档案: {type: alias, target: /profile}
+  身份:
+    type: alias
+    target: /whoami
+  版本:
+    type: alias
+    target: /version
+  上下文:
+    type: alias
+    target: /context
+  侧问:
+    type: alias
+    target: /btw
+  暂停:
+    type: alias
+    target: /pause
+  对讲:
+    type: alias
+    target: /voice on
+  静音:
+    type: alias
+    target: /voice off
+  计划:
+    type: alias
+    target: /plan
+  变更:
+    type: alias
+    target: /diff
+  记忆:
+    type: alias
+    target: /memory
+  平台:
+    type: alias
+    target: /platform
+  学习:
+    type: alias
+    target: /learn
+  调试:
+    type: alias
+    target: /debug
+  更新:
+    type: alias
+    target: /update
+  重启:
+    type: alias
+    target: /restart
+  语音:
+    type: alias
+    target: /voice
+  忙时:
+    type: alias
+    target: /busy
+  设主频道:
+    type: alias
+    target: /sethome

@@ -1,0 +1,9 @@
+name: feishu-model-picker
+label: Feishu Model Picker (本地)
+version: 1.1.0
+description: >
+  为飞书适配器补上交互式模型选择器：/model 无参数时发送可点选的卡片
+  （提供方 → 模型逐级下钻，点击就地切换），体验对齐 Telegram。
+  以运行期打补丁实现，不修改任何官方文件；官方插件更新后由守护线程自动补装。
+author: Hermes 本地扩展
+kind: standalone

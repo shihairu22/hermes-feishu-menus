@@ -1,0 +1,263 @@
+{
+ "botMenuEnable": true,
+ "botMenuDisplayStrategy": 3,
+ "botMenuConfig": [
+  {
+   "botMenuID": "2",
+   "defaultName": "📊面板",
+   "i18nBotMenuName": {
+    "zh_cn": "📊面板"
+   },
+   "menuContentType": 3,
+   "childNodes": [
+    {
+     "botMenuID": "3",
+     "defaultName": "📊面板",
+     "i18nBotMenuName": {
+      "zh_cn": "📊面板"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "4",
+     "defaultName": "🖥系统",
+     "i18nBotMenuName": {
+      "zh_cn": "🖥系统"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "5",
+     "defaultName": "📈用量",
+     "i18nBotMenuName": {
+      "zh_cn": "📈用量"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "6",
+     "defaultName": "🧰技能",
+     "i18nBotMenuName": {
+      "zh_cn": "🧰技能"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "7",
+     "defaultName": "🌱PT",
+     "i18nBotMenuName": {
+      "zh_cn": "🌱PT"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "8",
+     "defaultName": "❓帮助",
+     "i18nBotMenuName": {
+      "zh_cn": "❓帮助"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    }
+   ]
+  },
+  {
+   "botMenuID": "9",
+   "defaultName": "💬会话",
+   "i18nBotMenuName": {
+    "zh_cn": "💬会话"
+   },
+   "menuContentType": 3,
+   "childNodes": [
+    {
+     "botMenuID": "10",
+     "defaultName": "✨新会话",
+     "i18nBotMenuName": {
+      "zh_cn": "✨新会话"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "11",
+     "defaultName": "📊状态",
+     "i18nBotMenuName": {
+      "zh_cn": "📊状态"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "12",
+     "defaultName": "🔁重试",
+     "i18nBotMenuName": {
+      "zh_cn": "🔁重试"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "13",
+     "defaultName": "🗜压缩",
+     "i18nBotMenuName": {
+      "zh_cn": "🗜压缩"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    }
+   ]
+  },
+  {
+   "botMenuID": "14",
+   "defaultName": "🎯任务",
+   "i18nBotMenuName": {
+    "zh_cn": "🎯任务"
+   },
+   "menuContentType": 3,
+   "childNodes": [
+    {
+     "botMenuID": "15",
+     "defaultName": "📋任务",
+     "i18nBotMenuName": {
+      "zh_cn": "📋任务"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "16",
+     "defaultName": "⏹停止",
+     "i18nBotMenuName": {
+      "zh_cn": "⏹停止"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "17",
+     "defaultName": "🏁目标",
+     "i18nBotMenuName": {
+      "zh_cn": "🏁目标"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    }
+   ]
+  },
+  {
+   "botMenuID": "18",
+   "defaultName": "⚙️设置",
+   "i18nBotMenuName": {
+    "zh_cn": "⚙️设置"
+   },
+   "menuContentType": 3,
+   "childNodes": [
+    {
+     "botMenuID": "19",
+     "defaultName": "🤖模型",
+     "i18nBotMenuName": {
+      "zh_cn": "🤖模型"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "20",
+     "defaultName": "🧠推理",
+     "i18nBotMenuName": {
+      "zh_cn": "🧠推理"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "21",
+     "defaultName": "🎭人格",
+     "i18nBotMenuName": {
+      "zh_cn": "🎭人格"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "22",
+     "defaultName": "🔊语音",
+     "i18nBotMenuName": {
+      "zh_cn": "🔊语音"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "23",
+     "defaultName": "🌙忙时",
+     "i18nBotMenuName": {
+      "zh_cn": "🌙忙时"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "24",
+     "defaultName": "🏠设主频道",
+     "i18nBotMenuName": {
+      "zh_cn": "🏠设主频道"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    }
+   ]
+  },
+  {
+   "botMenuID": "25",
+   "defaultName": "🔧运维",
+   "i18nBotMenuName": {
+    "zh_cn": "🔧运维"
+   },
+   "menuContentType": 3,
+   "childNodes": [
+    {
+     "botMenuID": "26",
+     "defaultName": "📜命令表",
+     "i18nBotMenuName": {
+      "zh_cn": "📜命令表"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "27",
+     "defaultName": "🏷版本",
+     "i18nBotMenuName": {
+      "zh_cn": "🏷版本"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "28",
+     "defaultName": "⬆️更新",
+     "i18nBotMenuName": {
+      "zh_cn": "⬆️更新"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    },
+    {
+     "botMenuID": "29",
+     "defaultName": "♻️重启",
+     "i18nBotMenuName": {
+      "zh_cn": "♻️重启"
+     },
+     "menuContentType": 4,
+     "childNodes": []
+    }
+   ]
+  }
+ ]
+}
