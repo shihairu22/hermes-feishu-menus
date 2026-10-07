@@ -1266,7 +1266,7 @@ _WS = _load_wave_shared()
 
 
 def _fmt_rounds(n: Any) -> str:
-    """轮次数值：优先用共享实现（与波形图/图表完全同口径），共享缺失时退回本地算法。"""
+    """用量数值：优先用共享实现（与波形图/图表完全同口径），共享缺失时退回本地算法。"""
     if _WS is not None:
         try:
             return _WS.fmt_k(n)
@@ -1317,7 +1317,7 @@ def _wave_block() -> List[Dict[str, Any]]:
     """用量卡顶部的波形块：**原生图表** + 四档按钮。
 
     文案/图表结构/单位全部来自 wave_shared（与 usage_wave.py 同一份，不再各写一套）；
-    数据取自 usage_wave.py 的状态文件（真实轮次，不重算）。
+    数据取自 usage_wave.py 的状态文件（真实 token，不重算）。
     按钮回调走 hermes_menu_wave，和独立波形卡同一套逻辑。
     """
     if _WS is None:
@@ -1348,7 +1348,7 @@ def _wave_block() -> List[Dict[str, Any]]:
                      "value": json.dumps({"hermes_menu_wave": n}, ensure_ascii=False)})
     return [
         {"tag": "markdown", "element_id": "wave_head",
-         "content": _WS.head_content(rng, info.get("total"), "**🌊 用量波形 · 轮次**　")},
+         "content": _WS.head_content(rng, info.get("total"), "**🌊 用量波形 · Token**　")},
         _WS.chart_el(rng, vals, labels, "wave_chart"),
         {"tag": "select_static", "element_id": "wave_sel", "width": "fill",
          "placeholder": {"tag": "plain_text", "content": "切换档位（当前 %s）" % rng},
