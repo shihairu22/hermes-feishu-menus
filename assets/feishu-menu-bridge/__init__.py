@@ -880,10 +880,12 @@ def _quota_status(ttl: float = 600.0) -> str:
         cfg = (home / "config.yaml").read_text(encoding="utf-8")
         m = re.search(r"(?m)^\s*base_url:\s*['\"]?(https?://[^\s'\"]+)", cfg)
         base = m.group(1).rstrip("/") if m else ""
-        key = ""
+        _ke = re.search(r"(?m)^\s*key_env:\s*['\"]?([A-Z0-9_]+)", cfg)
+        _ke = _ke.group(1) if _ke else "OPENAI_API_KEY"
+        key = (_os.environ.get(_ke) or "").strip()
         envf = home / ".env"
-        if envf.exists():
-            em = re.search(r"(?m)^OPENAI_API_KEY=(.*)$",
+        if not key and envf.exists():
+            em = re.search(r"(?m)^%s=(.*)$" % re.escape(_ke),
                            envf.read_text(encoding="utf-8", errors="ignore"))
             key = em.group(1).strip().strip('"').strip("'") if em else ""
         if base and key:
@@ -2294,11 +2296,11 @@ def _is_chinese(text: str) -> bool:
 def _llm_endpoint() -> Tuple[str, str, str]:
     """本机模型接入点 (base_url, api_key, model)；任一项缺失就返回三个空串。
 
-    读 config.yaml 的 base_url / model.default；密钥优先取环境变量
-    OPENAI_API_KEY（config.yaml 的 providers.*.key_env 指向它），取不到再读
+    读 config.yaml 的 base_url / model.default；密钥变量名取 config 里
+    providers.*.key_env（本机为 HERMES_RELAY_API_KEY），先查进程环境再读
     $HERMES_HOME/.env。**不打印、不外传密钥**。
     """
-    base = model = ""
+    base = model = cfg = ""
     try:
         cfg = (Path(_HOME_DIR) / "config.yaml").read_text(encoding="utf-8")
         m = re.search(r"(?m)^\s*base_url:\s*['\"]?(https?://[^\s'\"]+)", cfg)
@@ -2307,12 +2309,19 @@ def _llm_endpoint() -> Tuple[str, str, str]:
         model = m.group(1) if m else ""
     except Exception:
         pass
-    key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    key_env = "OPENAI_API_KEY"
+    try:
+        _m = re.search(r"(?m)^\s*key_env:\s*['\"]?([A-Z0-9_]+)", cfg)
+        if _m:
+            key_env = _m.group(1)
+    except Exception:
+        pass
+    key = (os.environ.get(key_env) or "").strip()
     if not key:
         try:
             for ln in (Path(_HOME_DIR) / ".env").read_text(encoding="utf-8").splitlines():
                 ln = ln.strip()
-                if ln.startswith("OPENAI_API_KEY="):
+                if ln.startswith(key_env + "="):
                     key = ln.split("=", 1)[1].strip().strip('"').strip("'")
                     break
         except Exception:
@@ -3807,7 +3816,7 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 116  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 117  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
               # 115 = 2026-10-07 PT 签到按钮改**能力门控**：装了 pt-site-keepalive 技能才渲染/才可点

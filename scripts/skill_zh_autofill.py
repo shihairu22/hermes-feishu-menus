@@ -68,7 +68,7 @@ def main() -> int:
         return 0
 
     if not key and not args.dry_run:
-        print("模型接入点未就绪：config.yaml 缺 base_url，或环境变量/`%s` 里没有 OPENAI_API_KEY。"
+        print("模型接入点未就绪：config.yaml 缺 base_url，或环境变量/`%s` 里没有 HERMES_RELAY_API_KEY。"
               % (_home() / ".env"), file=sys.stderr)
         print("技能卡会继续显示 SKILL.md 原文，不影响其他功能。", file=sys.stderr)
         return 2
