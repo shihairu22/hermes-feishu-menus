@@ -58,8 +58,12 @@ def main() -> int:
         print(f"[内层] assets/{plugin}/SHA256SUMS：{len(files)} 项")
 
     # ── 2) 外层（自动发现 git 跟踪文件）──
-    out = subprocess.run(["git", "-C", str(repo), "ls-files"],
-                         capture_output=True, text=True, check=True).stdout.split()
+    # 注意：必须关掉 core.quotepath，否则非 ASCII 文件名会被 git 转义成
+    # "path/\345\244\247..." 这种形式，读文件直接失败（曾让 CI 变红）。
+    out = subprocess.run(["git", "-C", str(repo), "-c", "core.quotepath=false",
+                          "ls-files", "-z"],
+                         capture_output=True, text=True, check=True).stdout.split("\0")
+    out = [f for f in out if f]
     picked = sorted(
         f for f in out
         if f not in MANIFEST_EXCLUDE and not f.startswith(MANIFEST_EXCLUDE_PREFIX)

@@ -130,8 +130,12 @@ def main() -> int:
     pats["author-handle"] = AUTHOR_HANDLE
     pats.update(extra_patterns())
 
-    files = subprocess.run(["git", "ls-files"], capture_output=True, text=True,
-                           check=True).stdout.split()
+    # 关掉 core.quotepath：否则非 ASCII 文件名会被 git 转义成 "path/\345\244\247..."
+    # 形态，既读不到文件（工作区扫描漏扫），也会让历史扫描认错路径。
+    files = subprocess.run(["git", "-c", "core.quotepath=false", "ls-files", "-z"],
+                           capture_output=True, text=True,
+                           check=True).stdout.split("\0")
+    files = [f for f in files if f]
     files = [f for f in files if not f.endswith(SKIP_SUFFIX)]
     if not a.strict:
         files = [f for f in files if f not in SOURCE_SKIP]
@@ -151,9 +155,10 @@ def main() -> int:
         revs = subprocess.run(["git", "rev-list", "--all"], capture_output=True,
                               text=True).stdout.split()
         for r in revs:
-            for f in subprocess.run(["git", "ls-tree", "-r", "--name-only", r],
-                                    capture_output=True, text=True).stdout.split():
-                if f.endswith(SKIP_SUFFIX):
+            for f in subprocess.run(["git", "-c", "core.quotepath=false", "ls-tree",
+                                     "-r", "--name-only", "-z", r],
+                                    capture_output=True, text=True).stdout.split("\0"):
+                if not f or f.endswith(SKIP_SUFFIX):
                     continue
                 if not a.strict and f in SOURCE_SKIP:
                     continue          # 与工作区扫描同一判据，否则 CI 会因扫描器自匹配而红
