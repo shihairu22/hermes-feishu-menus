@@ -26,6 +26,7 @@ Hermes 原生的飞书机器人只会收发文本 —— 命令得背、参数�
 | 中文快捷命令 `quick_commands`：**56 条**（`/状态` `/新会话` `/时间` …） | `$HERMES_HOME/config.yaml` | 全自动 |
 | 插件 `feishu-menu-bridge`：悬浮菜单文本 → 交互卡片 | `$HERMES_HOME/plugins/` | 全自动 |
 | 插件 `feishu-model-picker`：`/model` 点选器卡片 | `$HERMES_HOME/plugins/` | 全自动 |
+| 用量波形链三件：`usage_snapshot.py` + `usage_wave.py` + `wave_shared.py`（可选增强：「📈用量」卡顶部的波形图） | `$HERMES_HOME/tools/` | 全自动 |
 | 实测手册：`SKILL.md` + `references/`（卡片局部刷新、配色、翻页…） | 给 AI 助手读 | — |
 
 ## 三步跑起来
@@ -36,7 +37,7 @@ git clone https://github.com/shihairu22/hermes-feishu-menus.git
 mkdir -p ~/.hermes/skills/social-media
 cp -r hermes-feishu-menus ~/.hermes/skills/social-media/feishu-menus
 
-# ② 本地安装：两个插件 + 中文快捷命令（无需扫码）
+# ② 本地安装：两个插件 + 中文快捷命令 + 用量波形链三件（无需扫码）
 bash ~/.hermes/skills/social-media/feishu-menus/scripts/install.sh
 
 # ③ 重启网关，让插件真正加载
@@ -59,12 +60,14 @@ feishu-menus/
 ├── MANIFEST.sha256               # 全包校验和
 ├── menu.json                     # 控制台悬浮菜单定义（5 组 23 项）
 ├── quick_commands.yaml           # 中文快捷命令片段（56 条）
+├── LICENSE                       # MIT
 ├── references/                   # 深水区实测记录
 │   ├── cardkit-partial-update-and-animation.md   # 卡片局部刷新 / 动画边界
 │   ├── card-palette-and-verified-components.md   # 卡头配色 + 可用组件清单
-│   └── paging-and-card-inventory.md              # 翻页机制 + 卡片清单 + 重启姿势
+│   ├── paging-and-card-inventory.md              # 翻页机制 + 卡片清单 + 重启姿势
+│   └── known-debt.md                             # 已知债务 / 结构性项（面向维护者）
 ├── scripts/
-│   ├── install.sh                        # ★ 一键本地安装（插件 + 快捷命令）
+│   ├── install.sh                        # ★ 一键本地安装（插件 + 快捷命令 + 波形链）
 │   ├── install-feishu-menu-bridge.sh     # 单装「菜单桥」插件
 │   ├── install-feishu-model-picker.sh    # 单装「模型点选器」插件
 │   ├── apply-quick-commands.py           # 把 quick_commands.yaml 合并进 config.yaml
@@ -73,10 +76,18 @@ feishu-menus/
 │   ├── console-publish.js                # 控制台：建版本 → 提交发布
 │   ├── check-assets-sync.sh              # assets ⇄ 线上插件一致性对账
 │   ├── feishu-model-picker-selftest.py   # 插件离线自测（7 项，纯标准库）
-│   └── skill_zh_autofill.py              # 把技能卡里没中文化的说明一次补齐（可选）
-└── assets/
-    ├── feishu-menu-bridge/       # 菜单桥插件源码（4 个文件 + SHA256SUMS）
-    └── feishu-model-picker/      # 点选器插件源码（3 个文件 + SHA256SUMS）
+│   ├── skill_zh_autofill.py              # 把技能卡里没中文化的说明一次补齐（可选）
+│   ├── regen-sums.py                     # 重算两层校验和（各插件 SHA256SUMS + MANIFEST.sha256）
+│   ├── sanitize-live-to-assets.py        # 作者侧：从本机 live 插件去敏生成 assets/
+│   └── scan-leaks.py                     # 泄漏扫描（工作区 + 全历史）
+├── tools/                        # 用量波形链（「📈用量」卡顶部的波形图，可选增强）
+│   ├── usage_snapshot.py         # 每 10 分钟记一次各会话累计 token（历史得自己攒）
+│   ├── usage_wave.py             # 读快照 → 算 24小时/3天/7天/30天 四档 → 写状态文件
+│   └── wave_shared.py            # 口径与文案，插件与脚本共用同一份（纯标准库）
+├── assets/
+│   ├── feishu-menu-bridge/       # 菜单桥插件源码（4 个文件 + SHA256SUMS）
+│   └── feishu-model-picker/      # 点选器插件源码（3 个文件 + SHA256SUMS）
+└── .github/workflows/ci.yml      # CI：语法检查 / 两层校验和 / 泄漏扫描
 ```
 
 > 版本变更与升级须知看 [`CHANGELOG.md`](CHANGELOG.md)。
@@ -84,7 +95,7 @@ feishu-menus/
 ## 常用命令
 
 ```bash
-bash scripts/install.sh                             # 一键装：插件 + 快捷命令
+bash scripts/install.sh                             # 一键装：插件 + 快捷命令 + 波形链
 python3 scripts/apply-quick-commands.py --dry-run   # 只看会往 config.yaml 加什么
 python3 scripts/build-console-snippet.py apply      # 生成「铺菜单」JS
 python3 scripts/build-console-snippet.py publish    # 生成「建版本+发布」JS
@@ -92,6 +103,11 @@ python3 scripts/feishu-model-picker-selftest.py     # 插件离线自测
 bash scripts/check-assets-sync.sh                   # assets ⇄ 线上插件对账
 python3 scripts/skill_zh_autofill.py --stats        # 看技能卡还有多少条说明没中文化
 python3 scripts/skill_zh_autofill.py                # 一次补齐（走你自己配置的模型）
+python3 tools/usage_snapshot.py                     # 记一次用量快照（建议每 10 分钟一次）
+python3 tools/usage_wave.py refresh-native          # 算四档波形 → 写 state/usage_wave.json
+python3 tools/usage_wave.py tap 7天                 # 切档位（用量卡的波形块按它重画）
+python3 scripts/regen-sums.py                       # 重算两层校验和 + 自检
+python3 scripts/scan-leaks.py                       # 泄漏扫描（工作区 + 全历史）
 sha256sum -c MANIFEST.sha256                        # 校验本包完整性
 ```
 
