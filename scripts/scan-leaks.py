@@ -35,7 +35,9 @@ PATTERNS = {
     "other-agent-system": r"openclaw|OpenClaw|小龙虾",
     "private-infra": r"群晖|synology|Synology|mihomo|warp-cli|cloudflared",
     "private-lan": r"\b10\.0\.0\.\d{1,3}\b",
-    "cred-file": r"cookies\.sqlite|_cookies\.txt|creds-backup",
+    # 只抓**作者自己**的备份目录名（形如 creds-backup-20260928）；`cookies.sqlite` /
+    # `_cookies.txt` 是人人一样的通用文件名，写进文档不算泄漏，已从规则里去掉。
+    "cred-file": r"creds-backup-\d{4,8}",
 }
 
 # 这些文件里出现「作者名」是公开归属（仓库 URL、许可证），不算泄漏。
@@ -50,8 +52,14 @@ ALLOW_PATTERNS_IN = {
 # 规则作用域。默认全仓库生效；`assets-only` 的规则只对**分发产物**生效——
 # 因为「绝对家目录路径」只有出现在产物里才是泄漏，在文档/CI 配置里讨论路径
 # 是正常写作（实测：自己的 CI grep 模式和 CHANGELOG 举例被自己的规则抓成红）。
+#
+# `private-infra` 同理：它抓的是「作者自己的基础设施痕迹」，而随包技能（PT 签到保活）
+# 的文档与脚本天然会写通用工具名（mihomo / warp-cli / cloudflared），站点 wiki 快照
+# 里还会原样出现厂商名（群晖 / Synology）——那是**忠实转载**，不是作者痕迹。
+# 故本规则只对 `assets/`（真正随包分发的插件产物）生效。
 RULE_SCOPE = {
     "home-abs-path": "assets-only",
+    "private-infra": "assets-only",
 }
 
 

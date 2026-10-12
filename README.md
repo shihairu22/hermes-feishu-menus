@@ -27,6 +27,7 @@ Hermes 原生的飞书机器人只会收发文本 —— 命令得背、参数�
 | 插件 `feishu-menu-bridge`：悬浮菜单文本 → 交互卡片 | `$HERMES_HOME/plugins/` | 全自动 |
 | 插件 `feishu-model-picker`：`/model` 点选器卡片 | `$HERMES_HOME/plugins/` | 全自动 |
 | 用量波形链三件：`usage_snapshot.py` + `usage_wave.py` + `wave_shared.py`（可选增强：「📈用量」卡顶部的波形图） | `$HERMES_HOME/tools/` | 全自动 |
+| PT 签到保活技能 + **16 页图文教程**（`skills/software-development/pt-site-keepalive/` + `getting-started.pdf`） | `$HERMES_HOME/skills/` | 拷过去 + 填凭据 |
 | 实测手册：`SKILL.md` + `references/`（卡片局部刷新、配色、翻页…） | 给 AI 助手读 | — |
 
 ## 三步跑起来
@@ -61,6 +62,8 @@ feishu-menus/
 ├── menu.json                     # 控制台悬浮菜单定义（5 组 23 项）
 ├── quick_commands.yaml           # 中文快捷命令片段（56 条）
 ├── LICENSE                       # MIT
+├── getting-started.pdf           # 16 页图文教程（菜单 + PT，从解包到验收）
+├── env.example                   # PT 凭据模板（只有键名，值全空）
 ├── references/                   # 深水区实测记录
 │   ├── cardkit-partial-update-and-animation.md   # 卡片局部刷新 / 动画边界
 │   ├── card-palette-and-verified-components.md   # 卡头配色 + 可用组件清单
@@ -87,10 +90,33 @@ feishu-menus/
 ├── assets/
 │   ├── feishu-menu-bridge/       # 菜单桥插件源码（4 个文件 + SHA256SUMS）
 │   └── feishu-model-picker/      # 点选器插件源码（3 个文件 + SHA256SUMS）
+├── skills/                       # PT 签到保活技能（与菜单技能同仓一并提供）
+│   └── software-development/pt-site-keepalive/
 └── .github/workflows/ci.yml      # CI：语法检查 / 两层校验和 / 泄漏扫描
 ```
 
 > 版本变更与升级须知看 [`CHANGELOG.md`](CHANGELOG.md)。
+
+## PT 签到保活技能 + 图文教程（同仓库一并提供）
+
+除了菜单技能，本仓库还带两样东西：
+
+- **PT 签到保活技能**：`skills/software-development/pt-site-keepalive/` —— 登录 / 签到 / 状态检查脚本 + 各站档案 + 卡住时的排障知识
+- **16 页图文教程**：`getting-started.pdf` —— 从解包到验收一步一步来，不需要懂编程
+
+装法（凭据模板见 `env.example`，只有键名、值全空）：
+
+```bash
+mkdir -p ~/.hermes/skills/software-development
+cp -r skills/software-development/pt-site-keepalive ~/.hermes/skills/software-development/
+mkdir -p ~/.pt-sessions && cp env.example ~/.pt-sessions/.env && chmod 600 ~/.pt-sessions/.env
+# 再打开 ~/.pt-sessions/.env 逐行填你自己的账号（没账号的站留空即可）
+```
+
+> **两条铁律**：① 签到**绝不走境外代理**（出口一变国外 IP 就触发风控甚至封号），代理只给教育网站点（BYR）用；
+> ② 装完能跑通的站 = 你自己有账号的那些站，其余报登录失败属正常。
+> 技能文档里提到的「包内 `SETUP.md` / `install.sh` / `verify.sh`」指的是 **Releases 里的完整交付包**
+> （菜单 + PT + 教程一键装，带逐文件校验和与装机自检）。
 
 ## 常用命令
 
