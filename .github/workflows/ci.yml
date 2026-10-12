@@ -24,10 +24,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: 语法检查（assets 里的插件）
+      - name: 语法检查（assets 里的插件 + 随仓库的工具）
         run: |
           set -e
-          for f in assets/*/__init__.py assets/*/keeper.py scripts/*.py; do
+          for f in assets/*/__init__.py assets/*/keeper.py scripts/*.py tools/*.py; do
             python3 -m py_compile "$f"
             echo "  ok  $f"
           done

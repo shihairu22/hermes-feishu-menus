@@ -28,14 +28,21 @@ echo
 
 export HM_NO_RELOAD=1     # 两个子脚本各自不重载，最后统一重载一次
 
-echo "── [1/3] 安装插件 feishu-menu-bridge（悬浮菜单 → 卡片菜单的桥）──"
+echo "── [1/4] 安装插件 feishu-menu-bridge（悬浮菜单 → 卡片菜单的桥）──"
 bash "$SKILL_DIR/scripts/install-feishu-menu-bridge.sh"
 echo
-echo "── [2/3] 安装插件 feishu-model-picker（/model 点选器）──"
+echo "── [2/4] 安装插件 feishu-model-picker（/model 点选器）──"
 bash "$SKILL_DIR/scripts/install-feishu-model-picker.sh"
 echo
-echo "── [3/3] 写入中文快捷命令 quick_commands ──"
+echo "── [3/4] 写入中文快捷命令 quick_commands ──"
 python3 "$SKILL_DIR/scripts/apply-quick-commands.py"
+echo
+echo "── [4/4] 落用量波形链三件（可选增强：「📈用量」卡顶部那块波形图）──"
+mkdir -p "$HERMES_DIR/tools"
+cp -p "$SKILL_DIR"/tools/wave_shared.py "$SKILL_DIR"/tools/usage_wave.py "$SKILL_DIR"/tools/usage_snapshot.py "$HERMES_DIR/tools/"
+echo "  ✓ 已就位：$HERMES_DIR/tools/{wave_shared,usage_wave,usage_snapshot}.py"
+echo "  注：插件在**加载时**读 tools/wave_shared.py —— 重载或重启网关后才出现波形块"
+echo "  注：数据要自己攒——每 10 分钟跑一次 usage_snapshot.py（见 SETUP.md「用量波形链」）"
 echo
 
 if systemctl is-active --quiet hermes-gateway.service 2>/dev/null; then

@@ -6,13 +6,14 @@
 - **飞书自建应用**：你自己在飞书开放平台建的（应用管理里能拿到 `cli_` 开头的 App ID），已开「机器人」能力、已订阅长连接事件。权限清单见 `SKILL.md` 第二节。
 - **Python 3.11+**：本包的插件与脚本**只用标准库**，不需要额外 pip 安装。
 - **bash** 与 `sha256sum`（安装脚本与对账脚本要用）。
-- 可选：Pillow、ffmpeg、中文字体 —— 只有做「用量波形 GIF」那部分才需要。
+- 可选：**无第三方依赖** —— 现役的「用量波形」走飞书**原生图表**（脚本只算数据、不产图），不需要 Pillow / ffmpeg / 中文字体。（历史上那套「波形 GIF」链已弃用，未随包。）
 
 ## 目录约定
 
 - 所有路径默认 `~/.hermes`，可用环境变量 **`HERMES_HOME`** 覆盖。
 - 插件安装位置：`$HERMES_HOME/plugins/<插件名>/`
 - 技能位置：`$HERMES_HOME/skills/<分类>/feishu-menus/`
+- 工具位置：`$HERMES_HOME/tools/`（用量波形链三件；仓库根的 `tools/` 提供）
 
 ---
 
@@ -23,18 +24,19 @@
 mkdir -p ~/.hermes/skills/social-media
 cp -r feishu-menus ~/.hermes/skills/social-media/
 
-# 2) 一键装：两个插件 + 中文快捷命令
+# 2) 一键装：两个插件 + 中文快捷命令 + 用量波形链三件
 bash ~/.hermes/skills/social-media/feishu-menus/scripts/install.sh
 
 # 3) 重启网关（插件只在网关**启动那一刻**读 plugins.enabled，reload 不一定够）
 systemctl restart hermes-gateway      # 或你部署方式对应的命令
 ```
 
-`install.sh` 做三件事，全程可重复运行：
+`install.sh` 做四件事，全程可重复运行：
 
 1. 拷 `assets/feishu-menu-bridge/` → `$HERMES_HOME/plugins/feishu-menu-bridge/`，并 `hermes plugins enable`
 2. 拷 `assets/feishu-model-picker/` → `$HERMES_HOME/plugins/feishu-model-picker/`，并 `hermes plugins enable`
 3. 把 `quick_commands.yaml`（56 条中文快捷命令）**合并**进 `$HERMES_HOME/config.yaml`
+4. 拷 `tools/` 三件（用量波形链）→ `$HERMES_HOME/tools/`（见下面「用量波形链」）
 
 第 3 步是**文本级、块内合并**：只动 `quick_commands:` 那一块，文件其余部分字节不变；已存在的同名命令**不覆盖**；写之前自动备份成 `config.yaml.bak-<时间戳>`；写完用 `hermes config get quick_commands` 回读复核。
 
@@ -46,6 +48,35 @@ python3 scripts/apply-quick-commands.py --force     # 同名命令也用本包�
 ```
 
 装完到飞书里给机器人发 `/model`：**出交互卡片 = 本地部分成功**。
+
+### 用量波形链（可选增强；三件随仓库根的 `tools/` 提供）
+
+「📈用量」卡顶部那块波形图**只算数据、不产图**：飞书**原生图表**吃 `state/usage_wave.json` 里的 `vals / labels / total / ymax`，所以整条链是**纯标准库**、零第三方依赖。
+
+| 文件 | 干什么 | 什么时候跑 |
+|---|---|---|
+| `usage_snapshot.py` | 把每个会话的累计 token（含缓存读）追加一行到 `state/usage_snapshots.jsonl`，保留 30 天 | **每 10 分钟**（历史数据得自己攒，不跑就没有曲线） |
+| `usage_wave.py refresh-native` | 读快照 → 算 24小时 / 3天 / 7天 / 30天 四档 → 写 `state/usage_wave.json` | 每 10 分钟，紧接上面那条 |
+| `wave_shared.py` | 口径与文案（单位、档位、图表结构），**插件与脚本共用同一份**，避免各写一套 | 不单独跑；插件在**加载时**读它 |
+
+装法：`scripts/install.sh` 的第 4 步已自动拷到位（= `$HERMES_HOME/tools/`）。手动的话：
+
+```bash
+mkdir -p "$HERMES_HOME/tools"        # 默认 ~/.hermes/tools
+cp tools/*.py "$HERMES_HOME/tools/"
+```
+
+定时（`crontab -e`，路径按你的实际装法改）：
+
+```cron
+*/10 * * * * /usr/bin/python3 $HOME/.hermes/tools/usage_snapshot.py >/dev/null 2>&1
+*/10 * * * * /usr/bin/python3 $HOME/.hermes/tools/usage_wave.py refresh-native >/dev/null 2>&1
+```
+
+> ⚠️ 放完文件要让网关**重新加载插件**（插件在启动那一刻读 `tools/wave_shared.py`），否则一直是那行「波形块未启用」。
+> 插件用哪个解释器起子进程？看 `HERMES_PYTHON`（默认 `/usr/bin/python3`），见下面「关于解释器」。
+
+验证：先手动跑一次 `usage_wave.py refresh-native`，再看 `$HERMES_HOME/state/usage_wave.json` 里有 `current` 和四档 `vals`；然后到飞书点「📈用量」——顶部出现波形图即通。切档位由 `usage_wave.py tap 7天` 完成（卡片上那几个档位按钮走的就是它）。
 
 ---
 

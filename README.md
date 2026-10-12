@@ -123,7 +123,7 @@ sha256sum -c MANIFEST.sha256                        # 校验本包完整性
 | 🎭人格 / 📜命令表 | Hermes 安装目录里的 `hermes_cli/personality.py`、`hermes_constants.py`、`hermes_cli/commands.py` | **自动探测**，见下方说明；全都找不到才会降级（人格 14→0 个内置、命令表 67→23 条） |
 | 🧠推理 | 插件自带档位表 | 不受影响 |
 | 🩺状态 / 📈用量 / 🔍洞察 | `$HERMES_HOME/state.db` | 任何 Hermes 都有；无数据时显示空值 |
-| 📈用量 的**波形块** | `$HERMES_HOME/tools/wave_shared.py` + `usage_wave.py` | 显示一行「波形块未启用」提示（**不再静默留白**），卡片其余部分正常 |
+| 📈用量 的**波形块** | `$HERMES_HOME/tools/` 三件（`wave_shared.py` / `usage_wave.py` / `usage_snapshot.py`，**随本仓库 `tools/` 提供**） | 显示一行「波形块未启用」提示（**不再静默留白**），卡片其余部分正常 |
 | 🌱PT | `$PT_SESSIONS_DIR/state/*.json` | 显示 `? 站 · 尚无记录` |
 | 🖥系统 | 本机实时读数 | 不受影响 |
 | 🧾系统详情 | 本机实时读数 | 不受影响（系统卡「📊 详情」的落点；2026-10-08 前该按钮误指向「洞察」卡） |
@@ -138,7 +138,7 @@ sha256sum -c MANIFEST.sha256                        # 校验本包完整性
 
 所以 **pipx / venv / `~/.local` 安装同样能直接跑**，不必手动设环境变量；只有在非常规布局下才需要显式指定。
 
-> 用量卡的**波形块**依赖本机 `tools/` 下两个工具文件（**不在本包里**，属于可选增强）。没有就是那行提示，卡片不会报错。
+> 用量卡的**波形块**依赖 `$HERMES_HOME/tools/` 下的三件工具文件（`wave_shared.py` / `usage_wave.py` / `usage_snapshot.py`）。**这三件随本仓库提供**（仓库根的 `tools/`），`scripts/install.sh` 的第 4 步会自动拷到位；没装就是那行「波形块未启用」提示，卡片不会报错。装法、定时攒数据、验证方法见 `SETUP.md`「用量波形链」。
 
 ## 技能卡的中文说明是怎么来的
 

@@ -122,16 +122,16 @@
    "childNodes": [
     {
      "botMenuID": "15",
-     "defaultName": "📋任务",
+     "defaultName": "🎯任务",
      "i18nBotMenuName": {
-      "zh_cn": "📋任务"
+      "zh_cn": "🎯任务"
      },
      "menuContentType": 4,
      "childNodes": []
-    },
-    {
+     },
+     {
      "botMenuID": "16",
-     "defaultName": "⏹停止",
+     "defaultName": "/stop",
      "i18nBotMenuName": {
       "zh_cn": "⏹停止"
      },

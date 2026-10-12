@@ -157,7 +157,7 @@ _MENU_CMD: Dict[str, str] = {
     "停止": "/stop", "目标": "/goal",
     "语音": "/voice", "设主频道": "/sethome",
     "更新": "/update", "重启": "/restart",
-    "模型": "/model",          # 2026-10-04：回到点选器（和「面板」里那颗按钮同一个效果）
+    "模型": "/model --refresh",   # 2026-10-11：点菜单即实时刷新（清缓存+实时拉取），缓存策略放弃，走官方参数
 }
 # 注：「状态」「推理」「任务」「忙时」「版本」已从本表摘除 → 落到 CARD_BUILDERS 分支，
 #     点菜单出卡片而不是发命令。
@@ -2986,7 +2986,7 @@ def build_error_card(text: str, kind: str) -> Dict[str, Any]:
     ]
     el += _rows([
         _btn("🔁 重试 /retry", {"hermes_menu_cmd": "/retry"}, "primary_filled"),
-        _btn("🤖 换模型", {"hermes_menu_cmd": "/model"}),
+        _btn("🤖 换模型", {"hermes_menu_cmd": "/model --refresh"}),
         _btn("✕ 收起", {"hermes_menu_close": True}),
     ])
     return _card(_ERR_TITLES.get(kind, "⚠️ 服务提示"), "orange", el)
@@ -3816,7 +3816,7 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 117  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 119  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
               # 115 = 2026-10-07 PT 签到按钮改**能力门控**：装了 pt-site-keepalive 技能才渲染/才可点

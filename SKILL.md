@@ -104,7 +104,7 @@ x.send(JSON.stringify({ menu: { botMenuEnable: true, botMenuDisplayStrategy: 3, 
 5. **改菜单结构 = 改插件 `GROUPS`**（插件表是唯一真源），并把 `_CODE_V` +1；热加载后看日志 `registered: N 命令 / M 卡片` 验证（N = 菜单项数 − 卡片数）。**给菜单项名称加图标不用改命令表**：入站改写会先精确命中、再退回剥掉开头图标后的名字
 6. **自检脚本（改完必跑）**：逐项校验 `quick_commands[名].target` 的命令名在 `hermes_cli.commands.GATEWAY_KNOWN_COMMANDS` 里；再反向查 `COMMANDS` 里有没有缺别名的项
 7. **发布**（2026-09-30 实测跑通 1.0.7）：API 直调更快——`app_version/create/<clientId>`（body `{clientId, appVersion:'1.0.7', changeLog:'<说明>', remark:'', autoPublish:false, visibleSuggest:{}, blackVisibleSuggest:{}}`）→ 拿 `data.versionId` → `publish/commit/<clientId>/<versionId>`（body `{clientId, versionId, is_full_release:true}`）→ `data.isOk=true` 即已发布（`versionStatus` 变 `2`）。UI 路径仍可兜底：`/app/<id>/version` →「创建版本」→ 版本号已预填（上版 +0.0.1）→ **更新说明 textarea 用 React 原生 setter + `input` 事件写入**（`Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(ta, txt)`；必填、上限 500）→「保存」→ 弹「确认提交发布申请？」→「确认发布」→ 版本页「已发布」+ 顶部「当前修改均已发布」
-8. **改完 config 的别名需网关重载才生效**：`systemctl reload hermes-gateway.service`（ExecReload = SIGUSR1，**不换 PID**、等当前回合排空后才重启）
+8. **改完 config 的别名需网关重载才生效**：`systemctl reload hermes-gateway.service`（ExecReload = SIGUSR1 → **优雅重启**：排空活跃回合 → 退出 → supervisor 拉起，**PID 会变**；同一回合里查 PID 看不到变化，别误判成失败——下一回合再核 `(vN)` 日志）
 ### 悬浮菜单项名称加 emoji（2026-10-02，Hermes 应用 1.0.9 已发布）
 
 - **做了什么**：控制台菜单**结构不变**（5 组 × 23 项，type=3 文件夹 + type=4 子项），只把每一项名称加图标：
@@ -364,7 +364,7 @@ EDH._do_without_validation = _patched_do
 - 「卡片回传交互」回调在控制台「事件与回调」添加；新版与旧版两种，选新版（结构 = 事件订阅一致）
 - 悬浮菜单在手机内显示于输入框上方；发布后 5 分钟内客户端同步
 - **改 quick_commands 只能走 `hermes config set 'quick_commands.<名>' '{"type":"alias","target":"/xxx"}'`**：`patch`/`write_file` 会被安全策略拒绝（"Refusing to write to Hermes config file"）
-- ⚠️ `systemctl reload hermes-gateway.service` **不换 PID**（原地 exec），且会**等当前回合排空**才真正重载配置 → 改完配置必须等下一回合再验证，别在同一回合断言已生效
+- ⚠️ `systemctl reload hermes-gateway.service` **优雅重启**（退出后由 supervisor 拉起，**PID 会变**），且会**等当前回合排空**才真正重载配置 → 改完配置必须等下一回合再验证，别在同一回合断言已生效
 - ⚠️ 控制台区块的「编辑」铅笔图标在**合成 hover 下不出现**（`getBoundingClientRect().width === 0`）：`mouseover/mouseenter/mousemove` 都无效，需 CDP `Input.dispatchMouseEvent` 真实鼠标移动或人工点一下
 - 卡片交互能力（2026-09 实测）：`cardkit:card:write` 该应用**已开通**，创建卡片实体 / 开流式 / 流式写文本全部 code 0；消息**表情回复**（`im/v1/messages/{id}/reactions` 加/撤）也已可用且**零额外权限**，适合做「收到/完成/失败」的静默状态反馈
 
