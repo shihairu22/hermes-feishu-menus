@@ -38,6 +38,8 @@ systemctl restart hermes-gateway      # 或你部署方式对应的命令
 3. 把 `quick_commands.yaml`（56 条中文快捷命令）**合并**进 `$HERMES_HOME/config.yaml`
 4. 拷 `tools/` 三件（用量波形链）→ `$HERMES_HOME/tools/`（见下面「用量波形链」）
 
+> 只装菜单桥、不跑完整 `install.sh` 时，`scripts/install-feishu-menu-bridge.sh` 也会自动做第 1 步和第 4 步，不会再漏 `wave_shared.py`。某些 Feishu 适配器构建（例如 NAS 官方镜像）没有 `_build_resolved_slash_confirm_card` 时，桥把 `resolved2` 视为“不适用”，不会周期性报 `UNHEALTHY`；有该方法的版本仍会校验补丁版本。
+
 第 3 步是**文本级、块内合并**：只动 `quick_commands:` 那一块，文件其余部分字节不变；已存在的同名命令**不覆盖**；写之前自动备份成 `config.yaml.bak-<时间戳>`；写完用 `hermes config get quick_commands` 回读复核。
 
 想先看会改什么：

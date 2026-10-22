@@ -2,7 +2,23 @@
 
 按时间倒序。每条写清三件事：**改了什么 / 影响谁 / 你要做什么**。
 
-版本号对应仓库的 git tag（同时有 GitHub Release）：`v1.0.0` = 首次公开，`v1.0.1` = F01 安全修复，`v1.0.2` = 审计整改（缺陷全修），`v1.0.3` = 修正 v1.0.2 自愈判据的副作用，`v1.0.4` = 修正 PT 主卡分母，`v1.0.5` = 去敏自动化 + PT 卡空状态 + 记录器可移植，`v1.0.6` = 修 CI 首次推送即红，`v1.0.7` = PT 签到按钮改能力门控，`v1.0.8` = 修系统卡「详情」误指洞察 + 新增「系统详情」卡，`v1.0.9` = 插件密钥变量名不再写死 `OPENAI_API_KEY`（改从 config `key_env` 解析），`v1.0.10` = 「模型」菜单点开即实时（`/model --refresh`）+ 菜单名与已发布控制台对齐 + 随仓库补上用量波形链，`v1.0.11` = 仓库并入 PT 签到保活技能 + 16 页图文教程 + 凭据模板，完整交付包挂 Release 附件。
+版本号对应仓库的 git tag（同时有 GitHub Release）：`v1.0.0` = 首次公开，`v1.0.1` = F01 安全修复，`v1.0.2` = 审计整改（缺陷全修），`v1.0.3` = 修正 v1.0.2 自愈判据的副作用，`v1.0.4` = 修正 PT 主卡分母，`v1.0.5` = 去敏自动化 + PT 卡空状态 + 记录器可移植，`v1.0.6` = 修 CI 首次推送即红，`v1.0.7` = PT 签到按钮改能力门控，`v1.0.8` = 修系统卡「详情」误指洞察 + 新增「系统详情」卡，`v1.0.9` = 插件密钥变量名不再写死 `OPENAI_API_KEY`（改从 config `key_env` 解析），`v1.0.10` = 「模型」菜单点开即实时（`/model --refresh`）+ 菜单名与已发布控制台对齐 + 随仓库补上用量波形链，`v1.0.11` = 仓库并入 PT 签到保活技能 + 16 页图文教程 + 凭据模板，完整交付包挂 Release 附件，`v1.0.12` = 单装安装器补 `tools/` 三件 + 缺少斜杠确认卡的 Feishu 适配器 `resolved2` 不再误报。
+
+---
+
+## v1.0.12 · 2026-10-22 · 单装菜单桥补齐用量波形工具；缺少斜杠确认卡的 Feishu 适配器不再误报 `resolved2`
+
+**改了什么**
+
+- **单装安装器补拷 `tools/` 三件**：`scripts/install-feishu-menu-bridge.sh` 现在会检查并复制 `wave_shared.py`、`usage_snapshot.py`、`usage_wave.py` 到 `$HERMES_HOME/tools/`，并在覆盖前备份旧文件。此前只有 `scripts/install.sh` 会拷，单装插件的新机器会报 `wave_shared 加载失败（用量波形块会隐藏）`。
+- **兼容缺少斜杠确认卡的 Feishu 适配器**：部分构建（例如 NAS 官方镜像）的 `FeishuAdapter` 没有 `_build_resolved_slash_confirm_card`，桥不再把这个“功能不存在”判成 `resolved2: False`，而是标为不适用；健康检查不会再周期性报 `UNHEALTHY`。有该方法的构建仍按 `_MARKER_RES2` 校验补丁是否装到当前 `_CODE_V`。不是版本号差异：本机与 NAS 都可能是 v0.22.4，但两份 adapter 内容不同。
+- `_CODE_V` 119 → 120；插件 `version` 1.0.0 → 1.0.1；`SHA256SUMS` / `MANIFEST.sha256` 同步。
+
+**影响谁**：新装菜单桥的人不再缺用量波形文件；适配器缺少斜杠确认卡的构建（如 NAS 官方镜像）不再出现误导性的健康告警。菜单文字、卡片和点击行为不变。
+
+**你要做什么**：重新运行 `bash scripts/install-feishu-menu-bridge.sh`，或手动把仓库根 `tools/` 三件复制到 `$HERMES_HOME/tools/`，然后重启网关。缺少该方法的适配器无需额外补方法。
+
+**验证**：`bash -n scripts/install-feishu-menu-bridge.sh`；CI 新增“单装安装器完整性”步骤，在临时 `HERMES_HOME` 实跑并断言插件 4 件 + `tools/` 3 件；`sha256sum -c assets/feishu-menu-bridge/SHA256SUMS`；NAS 实机重启后无 `wave_shared` / `UNHEALTHY` 告警（`resolved2` 在 v0.22.4 上为 N/A）。
 
 ---
 

@@ -7,9 +7,13 @@ SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ASSETS="$SKILL_DIR/assets/feishu-menu-bridge"
 HERMES_DIR="${HERMES_HOME:-$HOME/.hermes}"
 DST="$HERMES_DIR/plugins/feishu-menu-bridge"
+TOOLS_SRC="$SKILL_DIR/tools"
 
 for f in __init__.py keeper.py plugin.yaml skill_zh.json; do
   [ -f "$ASSETS/$f" ] || { echo "缺少 assets/feishu-menu-bridge/$f（请从技能包运行）"; exit 1; }
+done
+for f in wave_shared.py usage_snapshot.py usage_wave.py; do
+  [ -f "$TOOLS_SRC/$f" ] || { echo "缺少 tools/$f（请从技能包运行）"; exit 1; }
 done
 
 # SHA256SUMS 自校验：防止分发途中损坏 / 半拷贝
@@ -46,6 +50,26 @@ for f in __init__.py keeper.py plugin.yaml skill_zh.json; do
   copy_asset "$f"
 done
 echo "✓ 插件已复制到 $DST（4 个文件：__init__.py + keeper.py + plugin.yaml + skill_zh.json）"
+
+# 用量卡/波形块依赖 tools/ 三件套；插件安装器也要带上，避免新机器出现
+# “wave_shared 加载失败（用量波形块会隐藏）”。
+mkdir -p "$HERMES_DIR/tools"
+for f in wave_shared.py usage_snapshot.py usage_wave.py; do
+  src="$TOOLS_SRC/$f"
+  dst="$HERMES_DIR/tools/$f"
+  if [ ! -e "$dst" ]; then
+    cp -p "$src" "$dst"
+    echo "  + tools/$f（新建）"
+  elif cmp -s "$src" "$dst"; then
+    echo "  = tools/$f 已是同一份，跳过"
+  else
+    bak="$dst.bak-$(date +%Y%m%d_%H%M%S)"
+    cp -p "$dst" "$bak"
+    cp -p "$src" "$dst"
+    echo "  ! tools/$f 与包内不同：旧文件已备份到 $bak，并已覆盖"
+  fi
+done
+echo "✓ 用量卡工具已复制到 $HERMES_DIR/tools（wave_shared.py + usage_snapshot.py + usage_wave.py）"
 
 if command -v hermes >/dev/null 2>&1; then
   hermes plugins enable feishu-menu-bridge || echo "! 启用失败，请手动运行: hermes plugins enable feishu-menu-bridge"

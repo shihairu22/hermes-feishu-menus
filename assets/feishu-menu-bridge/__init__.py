@@ -3816,7 +3816,7 @@ def _mk(obj: Any, name: str) -> int:
         logger.debug("[FeishuMenuBridge] _mk 读取标记失败：%s", name, exc_info=True)
         return 0
 
-_CODE_V = 119  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
+_CODE_V = 120  # 改本文件里任何「卡片/点击」逻辑时 +1：强制重建已连接的分发器
               # 109 = 2026-10-05 已处理卡并入插件视觉体系 + 斜杠确认卡带命令名
               # 110 = 2026-10-07 F01 修复：发卡/吞消息前先复用网关授权判断（钩子 + 批处理）
               # 115 = 2026-10-07 PT 签到按钮改**能力门控**：装了 pt-site-keepalive 技能才渲染/才可点
@@ -5186,9 +5186,14 @@ def _patch_health(tag: str = "") -> Dict[str, Any]:
                                   and _mk(_cls, "_fmb_send_cardify") >= _CODE_V)
             _r1 = getattr(_cls, "_build_resolved_slash_confirm_card", None)
             _r2 = getattr(_cls, "_build_resolved_approval_card", None)
-            fam["resolved2"] = bool(
-                _mk(getattr(_r1, "__func__", _r1), _MARKER_RES2) >= _CODE_V
-                and _mk(getattr(_r2, "__func__", _r2), _MARKER_RES2) >= _CODE_V)
+            if _r1 is None:
+                # Some Feishu adapter builds (e.g. official NAS image) have no slash-confirm card.
+                # The patch family is not applicable — do not report unhealthy.
+                fam["resolved2"] = True
+            else:
+                fam["resolved2"] = bool(
+                    _mk(getattr(_r1, "__func__", _r1), _MARKER_RES2) >= _CODE_V
+                    and _mk(getattr(_r2, "__func__", _r2), _MARKER_RES2) >= _CODE_V)
             break
 
     # 5) 回执抑制（BasePlatformAdapter.send_final_ledgered 上，批3 新增覆盖）

@@ -49,6 +49,20 @@ jobs:
               print("  ok  quick_commands.yaml")
           PY
 
+      - name: 单装安装器完整性（插件 + tools 三件）
+        run: |
+          set -e
+          tmp="$(mktemp -d)"
+          HERMES_HOME="$tmp" HM_NO_RELOAD=1 bash scripts/install-feishu-menu-bridge.sh
+          test -f "$tmp/plugins/feishu-menu-bridge/__init__.py"
+          test -f "$tmp/plugins/feishu-menu-bridge/keeper.py"
+          test -f "$tmp/plugins/feishu-menu-bridge/plugin.yaml"
+          test -f "$tmp/plugins/feishu-menu-bridge/skill_zh.json"
+          for f in wave_shared.py usage_snapshot.py usage_wave.py; do
+            test -f "$tmp/tools/$f"
+          done
+          echo "  ok  单装结果包含插件 4 件 + tools 3 件"
+
       - name: 两层校验和自检
         run: |
           set -e

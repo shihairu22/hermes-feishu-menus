@@ -180,7 +180,7 @@ sha256sum -c MANIFEST.sha256                        # 校验本包完整性
 
 所以 **pipx / venv / `~/.local` 安装同样能直接跑**，不必手动设环境变量；只有在非常规布局下才需要显式指定。
 
-> 用量卡的**波形块**依赖 `$HERMES_HOME/tools/` 下的三件工具文件（`wave_shared.py` / `usage_wave.py` / `usage_snapshot.py`）。**这三件随本仓库提供**（仓库根的 `tools/`），`scripts/install.sh` 的第 4 步会自动拷到位；没装就是那行「波形块未启用」提示，卡片不会报错。装法、定时攒数据、验证方法见 `SETUP.md`「用量波形链」。
+> 用量卡的**波形块**依赖 `$HERMES_HOME/tools/` 下的三件工具文件（`wave_shared.py` / `usage_wave.py` / `usage_snapshot.py`）。**这三件随本仓库提供**（仓库根的 `tools/`），`scripts/install.sh` 的第 4 步和单装 `scripts/install-feishu-menu-bridge.sh` 都会自动拷到位；没装就是那行「波形块未启用」提示，卡片不会报错。装法、定时攒数据、验证方法见 `SETUP.md`「用量波形链」。
 
 ## 技能卡的中文说明是怎么来的
 
