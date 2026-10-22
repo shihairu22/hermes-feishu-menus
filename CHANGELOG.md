@@ -2,7 +2,23 @@
 
 按时间倒序。每条写清三件事：**改了什么 / 影响谁 / 你要做什么**。
 
-版本号对应仓库的 git tag（同时有 GitHub Release）：`v1.0.0` = 首次公开，`v1.0.1` = F01 安全修复，`v1.0.2` = 审计整改（缺陷全修），`v1.0.3` = 修正 v1.0.2 自愈判据的副作用，`v1.0.4` = 修正 PT 主卡分母，`v1.0.5` = 去敏自动化 + PT 卡空状态 + 记录器可移植，`v1.0.6` = 修 CI 首次推送即红，`v1.0.7` = PT 签到按钮改能力门控，`v1.0.8` = 修系统卡「详情」误指洞察 + 新增「系统详情」卡，`v1.0.9` = 插件密钥变量名不再写死 `OPENAI_API_KEY`（改从 config `key_env` 解析），`v1.0.10` = 「模型」菜单点开即实时（`/model --refresh`）+ 菜单名与已发布控制台对齐 + 随仓库补上用量波形链，`v1.0.11` = 仓库并入 PT 签到保活技能 + 16 页图文教程 + 凭据模板，完整交付包挂 Release 附件，`v1.0.12` = 单装安装器补 `tools/` 三件 + 缺少斜杠确认卡的 Feishu 适配器 `resolved2` 不再误报。
+版本号对应仓库的 git tag（同时有 GitHub Release）：`v1.0.0` = 首次公开，`v1.0.1` = F01 安全修复，`v1.0.2` = 审计整改（缺陷全修），`v1.0.3` = 修正 v1.0.2 自愈判据的副作用，`v1.0.4` = 修正 PT 主卡分母，`v1.0.5` = 去敏自动化 + PT 卡空状态 + 记录器可移植，`v1.0.6` = 修 CI 首次推送即红，`v1.0.7` = PT 签到按钮改能力门控，`v1.0.8` = 修系统卡「详情」误指洞察 + 新增「系统详情」卡，`v1.0.9` = 插件密钥变量名不再写死 `OPENAI_API_KEY`（改从 config `key_env` 解析），`v1.0.10` = 「模型」菜单点开即实时（`/model --refresh`）+ 菜单名与已发布控制台对齐 + 随仓库补上用量波形链，`v1.0.11` = 仓库并入 PT 签到保活技能 + 16 页图文教程 + 凭据模板，完整交付包挂 Release 附件，`v1.0.12` = 单装安装器补 `tools/` 三件 + 缺少斜杠确认卡的 Feishu 适配器 `resolved2` 不再误报，`v1.0.13` = `menu.json` 补 `udIcon` 真图标（含 PT，不删模块）。
+
+---
+
+## v1.0.13 · 2026-10-22 · `menu.json` 补 `udIcon` 真图标（含 PT，不删模块）
+
+**改了什么**
+
+- **`menu.json` 的 5 个分组 + 23 个子项全部补上控制台 `udIcon`**：分组和条目都使用真图标，不再靠 emoji 前缀；PT 项保留，图标 `check_outlined`。
+- 名称统一为纯文字（`📊面板` → `面板`，`/stop` → `停止`），`defaultName` 与 `i18nBotMenuName.zh_cn` 同步；菜单桥仍按中文名改写/开卡。
+- 图标映射沿用已验证表：`home_outlined`、`computer_outlined`、`insert-chart_outlined`、`briefcase_outlined`、`helpdesk_outlined`、`add-chat_outlined`、`signal_outlined`、`redo_outlined`、`collapse_outlined`、`multitask_outlined`、`stop_outlined`、`flag_outlined`、`robot_outlined`、`mindnote_outlined`、`member_outlined`、`voice_outlined`、`time_outlined`、`pin_outlined`、`menu_outlined`、`version_outlined`、`arrow-up_outlined`、`history_outlined`、`check_outlined`；分组另有 `chat-all_outlined`、`quicksetting_outlined`、`setting_outlined`。
+
+**影响谁**：从仓库导入/直写 `menu.json` 的新实例会直接带图标；保留 PT，不需要 PT 的部署可只删菜单项，不用改桥代码。
+
+**你要做什么**：用控制台 API 整单写入 `menu.json` 后创建并发布版本；客户端约 5 分钟生效，桌面控制台不渲染 `udIcon`，以手机端为准。
+
+**验证**：JSON 解析通过；5 分组 / 23 子项 / 28 个节点全部有 `udIcon`，`PT` 仍在；`regen-sums.py` 与 `scan-leaks.py --history` 通过。
 
 ---
 

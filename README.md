@@ -59,7 +59,7 @@ feishu-menus/
 ├── SANITIZED.md                  # 去敏说明与自检命令
 ├── CHANGELOG.md                  # 更新说明（改了什么 / 影响谁 / 你要做什么）
 ├── MANIFEST.sha256               # 全包校验和
-├── menu.json                     # 控制台悬浮菜单定义（5 组 23 项）
+├── menu.json                     # 控制台悬浮菜单定义（5 组 23 项，纯文字 + udIcon 真图标，含 PT）
 ├── quick_commands.yaml           # 中文快捷命令片段（56 条）
 ├── LICENSE                       # MIT
 ├── getting-started.pdf           # 16 页图文教程（菜单 + PT，从解包到验收）

@@ -1,7 +1,7 @@
 ---
 name: feishu-menus
 description: Use when 配置或排查飞书菜单（悬浮菜单、卡片菜单、中文快捷命令）.
-version: 1.0.12
+version: 1.0.13
 author: Hermes Agent
 license: MIT
 metadata:
