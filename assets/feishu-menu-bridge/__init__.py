@@ -157,7 +157,7 @@ _MENU_CMD: Dict[str, str] = {
     "停止": "/stop", "目标": "/goal",
     "语音": "/voice", "设主频道": "/sethome",
     "更新": "/update", "重启": "/restart",
-    "模型": "/model --refresh",   # 2026-10-11：点菜单即实时刷新（清缓存+实时拉取），缓存策略放弃，走官方参数
+    "模型": "/model",   # 2026-10-22：必须发裸 /model；带 --refresh 会绕过 feishu-model-picker，退回文本帮助
 }
 # 注：「状态」「推理」「任务」「忙时」「版本」已从本表摘除 → 落到 CARD_BUILDERS 分支，
 #     点菜单出卡片而不是发命令。
